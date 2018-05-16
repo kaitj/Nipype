@@ -5,6 +5,7 @@ from __future__ import (print_function, division, unicode_literals,
                         absolute_import)
 
 import os.path as op
+import sys
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
                     File, isdefined, Undefined)
@@ -40,10 +41,8 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         argstr='%s', position=-1, desc='output CSF response text file')
     in_mask = File(
         exists=True, argstr='-mask %s', desc='provide initial mask image')
-    max_sh = traits.Int(
-        8, usedefault=True,
-        argstr='-lmax %d',
-        desc='maximum harmonic degree of response function')
+    max_sh = traits.String(
+        argstr='-lmax %s', desc='maximum harmonic degree of response function')
 
 
 class ResponseSDOutputSpec(TraitedSpec):
