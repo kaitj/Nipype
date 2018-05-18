@@ -82,6 +82,50 @@ class ResponseSD(MRTrix3Base):
         return outputs
 
 
+class AverageResponseInputSpec(CommandLineInputSpec):
+    in_files = traits.List(
+        argstr='%s',
+        desc='input response files to average'
+    )
+    out_file = File(
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output file after averaging'
+    )
+
+
+class AverageResponseOutputSpec(TraitedSpec):
+    out_file = File(argstr='%s', desc='output average response text file')
+
+
+class AverageResponse(CommandLine):
+    """
+    Compute average response function from individual subject response
+    functions.
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> avgresp = mrt.AverageResponse()
+    >>> avgresp.inputs.in_file = ['wm1.txt', 'wm2.txt', ...]
+    >>> avgresp.inputs.out_file = 'avg_wm.txt'
+    >>> avgresp.cmdline                               # doctest: +ELLIPSIS
+    'average_response wm1.txt wm2.txt ... avg_wm.txt'
+    >>> avgresp.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = 'average_response'
+    input_spec = AverageResponseInputSpec
+    output_spec = AverageResponseOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
 class ACTPrepareFSLInputSpec(CommandLineInputSpec):
     in_file = File(
         exists=True,
