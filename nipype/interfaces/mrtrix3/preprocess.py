@@ -8,7 +8,7 @@ import os.path as op
 import sys
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, isdefined, Undefined)
+                    File, isdefined, Undefined, InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -83,20 +83,23 @@ class ResponseSD(MRTrix3Base):
 
 
 class AverageResponseInputSpec(CommandLineInputSpec):
-    in_files = traits.List(
+    in_files = InputMultiPath(
+        File(exists=True),
         argstr='%s',
-        desc='input response files to average'
-    )
-    out_file = File(
-        argstr='%s',
+        position=-2,
         mandatory=True,
+        desc='input response files to average')
+
+    out_file = File(
+        'avg.txt',
+        argstr='%s',
+        usedefault=True,
         position=-1,
-        desc='output file after averaging'
-    )
+        desc='output file after averaging')
 
 
 class AverageResponseOutputSpec(TraitedSpec):
-    out_file = File(argstr='%s', desc='output average response text file')
+    out_file = File(exists=True, desc='output average response text file')
 
 
 class AverageResponse(CommandLine):
@@ -107,13 +110,13 @@ class AverageResponse(CommandLine):
     Example
     -------
 
-    >>> import nipype.interfaces.mrtrix3 as mrt
-    >>> avgresp = mrt.AverageResponse()
-    >>> avgresp.inputs.in_file = ['wm1.txt', 'wm2.txt', ...]
-    >>> avgresp.inputs.out_file = 'avg_wm.txt'
-    >>> avgresp.cmdline                               # doctest: +ELLIPSIS
+    >>> from nipype.interfaces.mrtrix3 import AverageResponse
+    >>> avg = AverageResponse()
+    >>> avg.inputs.in_files = ['wm1.txt', 'wm2.txt', ...]
+    >>> avg.inputs.out_file = 'avg_wm.txt'
+    >>> avg.cmdline
     'average_response wm1.txt wm2.txt ... avg_wm.txt'
-    >>> avgresp.run()                                 # doctest: +SKIP
+    >>> avg.run()
     """
 
     _cmd = 'average_response'
