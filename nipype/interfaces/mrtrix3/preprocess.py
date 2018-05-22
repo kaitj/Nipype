@@ -5,9 +5,11 @@ from __future__ import (print_function, division, unicode_literals,
                         absolute_import)
 
 import os.path as op
+import sys
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, isdefined, Undefined, InputMultiObject)
+                    File, isdefined, Undefined, InputMultiObject,
+                    InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -153,6 +155,53 @@ class ResponseSD(MRTrix3Base):
             outputs['gm_file'] = op.abspath(self.inputs.gm_file)
         if self.inputs.csf_file != Undefined:
             outputs['csf_file'] = op.abspath(self.inputs.csf_file)
+        return outputs
+
+
+class AverageResponseInputSpec(CommandLineInputSpec):
+    in_files = InputMultiPath(
+        File(exists=True),
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input response files to average')
+
+    out_file = File(
+        'avg.txt',
+        argstr='%s',
+        usedefault=True,
+        position=-1,
+        desc='output file after averaging')
+
+
+class AverageResponseOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output average response text file')
+
+
+class AverageResponse(CommandLine):
+    """
+    Compute average response function from individual subject response
+    functions.
+
+    Example
+    -------
+
+    >>> from nipype.interfaces.mrtrix3 import AverageResponse
+    >>> avg = AverageResponse()
+    >>> avg.inputs.in_files = ['wm1.txt', 'wm2.txt', ...]
+    >>> avg.inputs.out_file = 'avg_wm.txt'
+    >>> avg.cmdline
+    'average_response wm1.txt wm2.txt ... avg_wm.txt'
+    >>> avg.run()
+    """
+
+    _cmd = 'average_response'
+    input_spec = AverageResponseInputSpec
+    output_spec = AverageResponseOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
         return outputs
 
 

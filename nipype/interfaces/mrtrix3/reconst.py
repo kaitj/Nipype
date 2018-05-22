@@ -116,10 +116,8 @@ class EstimateFODInputSpec(MRTrix3BaseInputSpec):
         sep=',',
         argstr='-shell %s',
         desc='specify one or more dw gradient shells')
-    max_sh = traits.Int(
-        8, usedefault=True,
-        argstr='-lmax %d',
-        desc='maximum harmonic degree of response function')
+    max_sh = traits.String(
+        argstr='-lmax %s', desc='maximum harmonic degree of response function')
     in_dirs = File(
         exists=True,
         argstr='-directions %s',
