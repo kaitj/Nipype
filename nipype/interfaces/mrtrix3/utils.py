@@ -7,7 +7,7 @@ from __future__ import (print_function, division, unicode_literals,
 import os.path as op
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, InputMultiPath, isdefined)
+                    File, InputMultiPath, isdefined, Directory)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -164,6 +164,167 @@ class Generate5tt(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
+    in_dir = Directory(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input directory containing all images to build the template')
+    out_file = File(
+        'template.mif',
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        usedefault=True,
+        desc='output image'
+    )
+    # general options
+    tfm_type = traits.Enum(
+        'rigid',
+        'affine',
+        'nonlinear',
+        'rigid_affine',
+        'rigid_nonlinear',
+        'affine_nonlinear',
+        'rigid_affine_nonlinear',
+        argstr='-type %s',
+        desc='types of registration stages to perform'
+    )
+    vox_size = traits.List(
+        traits.Int, argstr='-voxel_size %s', sep=',', desc='voxel dimensions')
+    init_align = traits.Enum(
+        'mass',
+        'geometric',
+        'none',
+        argstr='-initial_alignment %s'
+    )
+    mask_dir = Directory(
+        argstr='-mask_dir %s',
+        desc='input masks in single directory'
+    )
+    warp_dir = Directory(
+        argstr='-warp_dir %s',
+        desc='output directory containing warps for each input'
+    )
+    tfm_dir = Directory(
+        argstr='-transformed_dir %s',
+        desc='output directory with transforms for each input'
+    )
+    lin_tfm_dir = Directory(
+        argstr='-linear_transformations_dir %s',
+        desc='output directory with linear transforms to generate template'
+    )
+    template_mask = File(
+        argstr='-template_mask %s',
+        desc='output template mask'
+    )
+    # non-lin options
+    nl_scale = traits.List(
+        traits.Float,
+        sep=',',
+        argstr='-nl_scale %s',
+        desc='specify multi-resolution pyramid to build non-linear template'
+    )
+    nl_lmax = traits.List(
+        traits.Int,
+        sep=',',
+        argstr='-nl_lmax %s',
+        desc='specify lmax used for non-linear registration'
+    )
+    nl_niter = traits.List(
+        traits.Int,
+        sep=',',
+        argstr='-nl_niter %s',
+        desc='specify number of registration iterations at each level'
+    )
+    nl_update_smooth = traits.Float(
+        argstr='-nl_update_smooth %f',
+        desc='regularise gradient update field with Gaussian smoothing'
+    )
+    nl_disp_smooth = traits.Float(
+        argstr='-nl_disp_smooth %f',
+        desc='regularise displacement field with Gaussian smoothing'
+    )
+    nl_grad_step = traits.Float(
+        argstr='-nl_grad_step %f',
+        desc='gradient step size for non-linear registration'
+    )
+    # linear options
+    lin_estimator = traits.String(
+        argstr='-linear_estimator %s',
+        desc='choose estimator for intensity difference metric'
+    )
+    rigid_scale = traits.List(
+        traits.Float,
+        argstr='-rigid_scale %s',
+        desc='specify multi-resolution pyramid to build rigid template'
+    )
+    rigid_lmax = traits.List(
+        traits.Int,
+        argstr='-rigid_lmax %s',
+        desc='specify lmax used for rigid registration'
+    )
+    rigid_niter = traits.List(
+        traits.Int,
+        argstr='-rigid_niter %s',
+        desc='specify number of registration iterations at each level'
+    )
+    affine_scale = traits.List(
+        traits.Float,
+        argstr='-affine_scale %s',
+        desc='specify multi-resolution pyramid to build affine template'
+    )
+    affine_lmax = traits.List(
+        traits.Int,
+        argstr='-affine_lmax %s',
+        desc='specify lmax used for affine registration'
+    )
+    affine_niter = traits.List(
+        traits.Int,
+        argstr='-affine_niter %s',
+        desc='specify number of registration iterations at each level'
+    )
+
+
+class PopulationTemplateOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output image')
+    warp_dir = Directory(desc='output directory with warps')
+    tfm_dir = Directory(desc='output directory with transforms')
+    lin_tfm_dir = Directory(desc='output directory with linear transforms')
+    template_mask = File(exists=False, desc='output template mask')
+
+
+class PopulationTemplate(MRTrix3Base):
+    """
+    Generates unbiased group-average template from series of images
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> popTemplate = mrt.PopulationTemplate()
+    >>> popTemplate.inputs.in_dir = 'in_folder'
+    >>> popTemplate.inputs.out_file = 'template.mif'
+    >>> popTemplate.cmdline                             # doctest: +ELLIPSIS
+    'population_template in_folder template.mif'
+    >>> popTemplate.run()                               # doctest: +SKIP
+    """
+
+    _cmd = 'population_template'
+    input_spec = PopulationTemplateInputSpec
+    output_spec = PopulationTemplateOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        outputs['warp_dir'] = op.abspath(self.inputs.warp_dir)
+        outputs['tfm_dir'] = op.abspath(self.inputs.tfm_dir)
+        outputs['lin_tfm_dir'] = op.abspath(self.inputs.lin_tfm_dir)
+        outputs['template_mask'] = op.abspath(self.inputs.template_mask)
         return outputs
 
 
