@@ -5,10 +5,9 @@ from __future__ import (print_function, division, unicode_literals,
                         absolute_import)
 
 import os.path as op
-import sys
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, isdefined, Undefined, InputMultiObject,
+                    File, Undefined, InputMultiObject,
                     InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
@@ -116,8 +115,8 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         usedefault=True,
         argstr='-lmax %s',
         sep=',',
-        desc=('maximum harmonic degree of response function - single value for '
-              'single-shell response, list for multi-shell response'))
+        desc=('maximum harmonic degree of response function - single value '
+              'for single-shell response, list for multi-shell response'))
 
 
 class ResponseSDOutputSpec(TraitedSpec):
@@ -128,7 +127,8 @@ class ResponseSDOutputSpec(TraitedSpec):
 
 class ResponseSD(MRTrix3Base):
     """
-    Estimate response function(s) for spherical deconvolution using the specified algorithm.
+    Estimate response function(s) for spherical deconvolution using the
+    specified algorithm.
 
     Example
     -------

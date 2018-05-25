@@ -295,7 +295,7 @@ class PopulationTemplateOutputSpec(TraitedSpec):
     warp_dir = Directory(desc='output directory with warps')
     tfm_dir = Directory(desc='output directory with transforms')
     lin_tfm_dir = Directory(desc='output directory with linear transforms')
-    template_mask = File(exists=False, desc='output template mask')
+    template_mask = File(desc='output template mask')
 
 
 class PopulationTemplate(MRTrix3Base):
@@ -321,10 +321,15 @@ class PopulationTemplate(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
-        outputs['warp_dir'] = op.abspath(self.inputs.warp_dir)
-        outputs['tfm_dir'] = op.abspath(self.inputs.tfm_dir)
-        outputs['lin_tfm_dir'] = op.abspath(self.inputs.lin_tfm_dir)
-        outputs['template_mask'] = op.abspath(self.inputs.template_mask)
+        # Conditional outputs
+        if isdefined(self.inputs.warp_dir) and self.inputs.warp_dir:
+            outputs['warp_dir'] = op.abspath(self.inputs.warp_dir)
+        if isdefined(self.inputs.tfm_dir) and self.inputs.tfm_dir:
+            outputs['tfm_dir'] = op.abspath(self.inputs.tfm_dir)
+        if isdefined(self.inputs.lin_tfm_dir) and self.inputs.lin_tmf_dir:
+            outputs['lin_tfm_dir'] = op.abspath(self.inputs.lin_tfm_dir)
+        if isdefined(self.inputs.template_mask) and self.inputs.template_mask:
+            outputs['template_mask'] = op.abspath(self.inputs.template_mask)
         return outputs
 
 
