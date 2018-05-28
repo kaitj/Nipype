@@ -168,6 +168,61 @@ class Generate5tt(MRTrix3Base):
         return outputs
 
 
+class Generate5ttMaskInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input 5tt segmented anatomical image'
+    )
+    out_file = File(
+        'mask_5tt.mif',
+        usedefault=True,
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output mask image'
+    )
+    mask_in = File(
+        argstr='-mask_in %s',
+        position=1,
+        desc='Filter input mask image according to voxel in GM/WM boundary'
+    )
+
+
+class Generate5ttMaskOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output mask image')
+
+
+class Generate5ttMask(MRTrix3Base):
+    """
+    Generate a mask image suitable appropriate for seeding streamlines on the
+    grey matter-white matter interface
+
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> gen5ttmask = mrt.Generate5ttMask()
+    >>> gen5ttmask.inputs.in_file = '5tt.mif'
+    >>> gen5ttmask.inputs.out_file = 'mask.mif'
+    >>> gen5ttmask.cmdline                             # doctest: +ELLIPSIS
+    '5tt2gmwmi 5tt.mif mask.mif'
+    >>> gen5ttmask.run()                               # doctest: +SKIP
+    """
+
+    _cmd = '5tt2gmwmi'
+    input_spec = Generate5ttMaskInputSpec
+    output_spec = Generate5ttMaskOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
 class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
     in_dir = Directory(
         exists=True,

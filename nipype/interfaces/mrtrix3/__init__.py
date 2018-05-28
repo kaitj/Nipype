@@ -3,9 +3,10 @@ from __future__ import absolute_import
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 # -*- coding: utf-8 -*-
 
-from .utils import (Mesh2PVE, Generate5tt, BrainMask, TensorMetrics,
-                    ComputeTDI, TCK2VTK, MRMath, MRConvert, DWIExtract,
-                    PopulationTemplate, MRRegister, MRTransform)
+from .utils import (Mesh2PVE, Generate5tt, Generate5ttMask, BrainMask,
+                    TensorMetrics, ComputeTDI, TCK2VTK, MRMath, MRConvert,
+                    DWIExtract, PopulationTemplate, MRRegister,
+                    MRTransform)
 from .preprocess import (ResponseSD, ACTPrepareFSL, ReplaceFSwithFIRST,
                          DWIDenoise, AverageResponse)
 from .tracking import Tractography
