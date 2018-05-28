@@ -5,7 +5,7 @@ from __future__ import absolute_import
 
 from .utils import (Mesh2PVE, Generate5tt, BrainMask, TensorMetrics,
                     ComputeTDI, TCK2VTK, MRMath, MRConvert, DWIExtract,
-                    PopulationTemplate)
+                    PopulationTemplate, MRRegister, MRTransform)
 from .preprocess import (ResponseSD, ACTPrepareFSL, ReplaceFSwithFIRST,
                          DWIDenoise, AverageResponse)
 from .tracking import Tractography
