@@ -1213,7 +1213,8 @@ class MRRegister(MRTrix3Base):
     >>> mrregister.inputs.mask1 = 'mask1.mif'
     >>> mrregister.inputs.nl_warp = ['mv-tmp_warp', 'tmp-mv_warp']
     >>> mrregister.cmdline
-    'mrregister -mask1 mask1.mif -nl_warp mv-tmp_warp tmp-mv_warp moving.mif template.mif'
+    'mrregister -mask1 mask1.mif -nl_warp mv-tmp_warp tmp-mv_warp moving.mif \
+    template.mif'
     >>> mrregister.run()
     """
 

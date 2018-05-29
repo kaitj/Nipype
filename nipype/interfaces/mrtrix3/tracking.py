@@ -6,7 +6,8 @@ from __future__ import (print_function, division, unicode_literals,
 
 import os.path as op
 
-from ..base import traits, TraitedSpec, File
+from ..base import (traits, TraitedSpec, File, InputMultiObject, Directory,
+                    Undefined)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -282,4 +283,191 @@ class Tractography(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class SIFTInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        position=-3,
+        mandatory=True,
+        desc='input track file'
+    )
+
+    in_fod = File(
+        exists=True,
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input image containing spherical harmonics of the fibre '
+             'orientation distrubtions'
+    )
+
+    out_file = File(
+        'tracks_filtered.tck',
+        argstr='%s',
+        position=-1,
+        usedefault=True,
+        desc='output filtered tracks file'
+    )
+
+    # Options
+    nofilter = traits.Bool(
+        argstr='-nofilter',
+        position=1,
+        desc='do NOT perform track filtering - just construct model to '
+             'provide output debugging images'
+    )
+    output_at_counts = InputMultiObject(
+        traits.Int,
+        argstr='-output_at_counds %d',
+        position=1,
+        desc='output filtered track files at specific numbers of remaining '
+             'streamlines; provide as comma-seperated list of integers'
+    )
+    # Options for processing mask
+    proc_mask = File(
+        argstr='-proc_mask %s',
+        position=1,
+        desc='provide image containign processing mask weights for the model '
+             'image spatial dimensions must match the fixel image'
+    )
+    act_img = File(
+        argstr='-act %s',
+        position=1,
+        desc='use an ACT five-tissue-type segmented anatomical image to '
+             'derive the processing mask'
+    )
+    # Options for SIFT model
+    fd_scale_gm = traits.Bool(
+        argstr='-fd_scale_gm',
+        position=1,
+        desc='provide this option (in conjunction with -act) to heuristically '
+             'downsize the fibre density estimates based on the presence of '
+             'GM in the voxel. this can assist in reducing tissue interface '
+             'effects when using a single-tissue deconvolution algorithm'
+    )
+    no_dilate = traits.Bool(
+        argstr='-no_dilate_lut',
+        position=1,
+        desc='do NOT dilate FOD lobe lookup tables; only map streamlines to '
+             'FOD lobes if the precise tangent lies within the angular spread '
+             'of that lobe'
+    )
+    null_lobes = traits.Bool(
+        argstr='-make_null_lobes',
+        position=1,
+        desc='add an additional FOD lobe to each voxel, with zero integral, '
+             'that covers all directions with zero / negative FOD amplitudes'
+    )
+    remove_untracked = traits.Bool(
+        argstr='-remove_untracked',
+        position=1,
+        desc='remove FOD lobes that do not have any streamline density '
+             'attributed to them; this improves filtering slightly, at the '
+             'expense of longer computation time (and you can no longer do '
+             'quantitative comparisons between reconstructions if this is '
+             'enabled)'
+    )
+    fd_thresh = traits.Float(
+        argstr='-fd_thresh %f',
+        position=1,
+        desc='fibre density threshold; excluse an FOD lobe from filtering '
+             'processing if its integral is less than this amount ( '
+             'streamlines will still be mapped to it, but it will not '
+             'contribute to the cost function or the filtering)'
+    )
+    # Options for additional output files
+    csv_file = File(
+        argstr='-csv %s',
+        position=1,
+        desc='output statistics of execution per iteration to a .csv file'
+    )
+    out_mu = File(
+        argstr='-out_mu %s',
+        position=1,
+        desc='output the final value of SIFT proportionality coefficient mu '
+             'to a text file'
+    )
+    out_debug = traits.Bool(
+        argstr='-output_debug',
+        position=1,
+        desc='provide various output images for assessing & debugging '
+             'performance etc.'
+    )
+    out_selection = Directory(
+        argstr='-out_selection %s',
+        position=1,
+        desc='output a text file containing the binary selection of '
+             'streamlines'
+    )
+    # Options on termination
+    term_number = traits.Int(
+        argstr='-term_number %d',
+        position=1,
+        desc='number of streamlines - continue filtering until this nubmer of '
+             'streamlines remain'
+    )
+    term_ratio = traits.Float(
+        argstr='-term_ratio %f',
+        position=1,
+        desc='termination ratio - defined as the ration between reduction in '
+             'cost function, and reduction in density of streamlines. smaller '
+             'values result in more streamlines being filtered out.'
+    )
+    term_mu = traits.Float(
+        argstr='-term_mu %f',
+        position=1,
+        desc='terminate filtering once the SIFT proportionality coefficient '
+             'reaches a given value'
+    )
+
+
+class SIFTOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output filtered tracks file')
+    csv_file = File(desc='output statistics of execution per iteration')
+    out_mu = File(desc='output final value of SIFT proportionality '
+                       'coefficient')
+    out_selection = Directory(desc='output a text file containing binary '
+                                   'selection of streamlines')
+
+
+class SIFT(MRTrix3Base):
+    """
+    Filter a whole-brain fibre-trackign data set such that the streamline
+    densities match the FOD lobe integrals
+
+    .. Smith, R. E.; Tournier, J.-D.; Calamante, F. & Connelly, A.
+       SIFT: Spherical-deconvolution informed filtering of tractograms.
+       NeuroImage, 2013, 67, 298-312
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> sift = mrt.SIFT()
+    >>> sift.inputs.in_file = 'tracks.tck'
+    >>> sift.inputs.in_fod = 'fods.mif'
+    >>> sift.inputs.out_file = 'tracks_filtered.tck'
+    >>> tk.cmdline                               # doctest: +ELLIPSIS
+    'tcksift tracks.tck fods.mif tracks_filtered.tck'
+    >>> tk.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = "tcksift"
+    input_spec = SIFTInputSpec
+    output_spec = SIFTOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+
+        # Conditional outputs
+        if self.inputs.csv_file != Undefined:
+            outputs['csv_file'] = op.abspath(self.inputs.csv_file)
+        if self.inputs.out_mu != Undefined:
+            outputs['out_mu'] = op.abspath(self.inputs.out_mu)
+        if self.inputs.out_selection != Undefined:
+            outputs['out_selection'] = op.abspath(self.inputs.out_selection)
         return outputs
