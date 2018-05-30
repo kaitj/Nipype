@@ -7,7 +7,7 @@ from __future__ import (print_function, division, unicode_literals,
 import os.path as op
 
 from ..base import (traits, TraitedSpec, File, InputMultiObject, Directory,
-                    Undefined)
+                    Undefined, CommandLineInputSpec)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -470,4 +470,106 @@ class SIFT(MRTrix3Base):
             outputs['out_mu'] = op.abspath(self.inputs.out_mu)
         if self.inputs.out_selection != Undefined:
             outputs['out_selection'] = op.abspath(self.inputs.out_selection)
+        return outputs
+
+
+class TCKConvertInputSpec(CommandLineInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input track file'
+    )
+    out_file = File(
+        argstr='%s',
+        position=-1,
+        mandatory=True,
+        desc='output track file'
+    )
+    # Options
+    scanner2voxel = File(
+        argstr='-scanner2voxel %s',
+        position=1,
+        desc='properties of this image will be uesd to convert track point '
+             'positions from real (scanner) coordinates into voxel coordinates'
+    )
+    scanner2image = File(
+        argstr='-scanner2image %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from real (scanner) coordinates into image '
+             'coordinates (in mm)'
+    )
+    voxel2scanner = File(
+        argstr='-voxel2scanner %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from voxel coordinates into real (scanner) coordinates'
+    )
+    image2scanner = File(
+        argstr='-image2scanner %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from image coordinates (in mm) into real (scanner) '
+             'coordinates'
+    )
+    # Ply writer options
+    sides = traits.Int(
+        argstr='-sides %d',
+        position=1,
+        desc='number of sides for streamlines',
+    )
+    increment = traits.Int(
+        argstr='-increment %d',
+        position=1,
+        desc='generate streamline points at every (increment) points'
+    )
+    # RIB writer options
+    dec = traits.Bool(
+        argstr='-dec',
+        position=1,
+        desc='add DEC as a primvar'
+    )
+    # Writer options for both RIB and PLY
+    radius = traits.Float(
+        argstr='-radius %f',
+        position=1,
+        desc='radius of the streamlines'
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc='number of threads. if zero, the number'
+        ' of available cpus will be used',
+        nohash=True
+    )
+
+
+class TCKConvertOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output track file')
+
+
+class TCKConvert(MRTrix3Base):
+    """
+    Convert between different track file formats
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tckconvert = mrt.tckconvert()
+    >>> tckconvert.inputs.in_file = 'tracks.tck'
+    >>> tckconvert.inputs.out_file = 'tracks.vtk'
+    >>> tckconert..cmdline                               # doctest: +ELLIPSIS
+    'tckconvert tracks.tck tracks.vtk
+    >>> tckconvert.run()                                 # doctest: +SKIP
+    """
+    _cmd = 'tckconvert'
+    input_spec = TCKConvertInputSpec
+    output_spec = TCKConvertOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
         return outputs
