@@ -7,7 +7,8 @@ from __future__ import (print_function, division, unicode_literals,
 import os.path as op
 
 from ..base import (traits, TraitedSpec, File, InputMultiObject, Directory,
-                    Undefined, CommandLineInputSpec)
+                    Undefined, CommandLineInputSpec, CommandLine, isdefined,
+                    InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -542,7 +543,6 @@ class TCKConvertInputSpec(CommandLineInputSpec):
         argstr='-nthreads %d',
         desc='number of threads. if zero, the number'
         ' of available cpus will be used',
-        nohash=True
     )
 
 
@@ -572,4 +572,153 @@ class TCKConvert(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class TCKEditInputSpec(CommandLineInputSpec):
+    in_file = InputMultiPath(
+        File(exists=True),
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input track file(s)'
+        )
+    out_file = File(
+        'tracks_selected.tck',
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        usedefault=True,
+        desc='output track file'
+    )
+    # ROI options
+    include = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-include %s',
+        position=1,
+        desc='inclusion ROI as either binary mask image, or as a sphere '
+             'using 4 comma-seperated values (x,y,z, radius). Streamlines '
+             'must traverse all inclusion regions to be accepted'
+    )
+    exclude = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-include %s',
+        position=1,
+        desc='inclusion ROI as either binary mask image, or as a sphere '
+             'using 4 comma-seperated values (x,y,z,radius). Streamlines '
+             'that enter ANY exclude region will be discarded'
+    )
+    mask = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-mask %s',
+        position=1,
+        desc='specify a masking ROI, as either a binary mask image, or as a '
+             'sphere using 4 comma-seperated values (x,y,z,radius). '
+             'If defined, streamlines existing the mask will be truncated.'
+    )
+    # Streamline threshold options
+    maxlength = traits.Float(
+        argstr='-maxlength %f',
+        position=1,
+        desc='set the maximum length of any streamline in mm'
+    )
+    minlength = traits.Float(
+        argstr='-minlength %f',
+        position=1,
+        desc='set the minimum length of any streamline in mm'
+    )
+    # Streamline truncation options
+    number = traits.Int(
+        argstr='-number %d',
+        position=1,
+        desc='set the desired number of selected streamlines to be '
+             'propogated to the output file'
+    )
+    skip = traits.Int(
+        argstr='-skip %d',
+        position=1,
+        desc='omit this number of selected straemlines before commencing '
+             'writing to the output file'
+    )
+    # Streamline weighting
+    maxvalue = traits.Float(
+        argstr='-maxweight %f',
+        position=1,
+        desc='set maximum weight of any streamline'
+    )
+    minvalue = traits.Float(
+        argstr='-minweight %f',
+        position=1,
+        desc='set minimum weight of any streamline'
+    )
+    tckweights_in = File(
+        exists=True,
+        argstr='-tck_weights_in %s',
+        position=1,
+        desc='specify a text scalar file containing the streamline weights'
+    )
+    tckweights_out = Directory(
+        argstr='-tck_weights_out %s',
+        position=1,
+        desc='specify the path for an output text scalar file containing '
+             'streamline weights'
+    )
+    # tckedit specific options
+    inverse = traits.Bool(
+        argstr='-inverse',
+        position=1,
+        desc='output inverse selection of streamlines based on criteria '
+             'provided, i.e. only those streamlines that fail at least one '
+             'criterion will be written to file '
+    )
+    ends_only = traits.Bool(
+        argstr='-ends_only',
+        position=1,
+        desc='only test the ends of each streamline against the provided '
+             'include/exclude ROIs'
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc='number of threads. if zero, the number of available cpus will '
+             'be used',
+    )
+
+
+class TCKEditOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output track file')
+    tckweights_out = Directory(desc='path for output text scalar file')
+
+
+class TCKEdit(CommandLine):
+    """
+    Perform various editing operations on track files
+
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tckedit = mrt.TCKEdit()
+    >>> tckedit.inputs.in_file = 'in_tracks.tck'
+    >>> tckedit.inputs.out_file = 'out_tracks.tck'
+    >>> tckedit.inputs.number = 20000
+    >>> tckedit.cmdline                               # doctest: +ELLIPSIS
+    'tckedit -number 20000 in_tracks.tck out_tracks.tck'
+    >>> tckedit.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = 'tckedit'
+    input_spec = TCKEditInputSpec
+    output_spec = TCKEditOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        # Conditional output
+        if isdefined(self.inputs.tckweights_out) and self.inputs.tck_weights_out:
+            outputs['tckweights_out'] = op.abspath(self.inputs.tckweight_out)
         return outputs
