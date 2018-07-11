@@ -8,7 +8,7 @@ from .utils import (Mesh2PVE, Generate5tt, Generate5ttMask, BrainMask,
                     DWIExtract, PopulationTemplate, MRRegister,
                     MRTransform)
 from .preprocess import (ResponseSD, ACTPrepareFSL, ReplaceFSwithFIRST,
-                         DWIDenoise, AverageResponse)
+                         DWIDenoise, AverageResponse, MTNormalise)
 from .tracking import Tractography, SIFT, TCKConvert, TCKEdit
 from .reconst import FitTensor, EstimateFOD
 from .connectivity import LabelConfig, LabelConvert, BuildConnectome

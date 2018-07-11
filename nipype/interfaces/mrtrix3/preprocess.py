@@ -315,3 +315,137 @@ mrtrix3_labelconfig.txt aparc+first.mif'
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
         return outputs
+
+
+class MTNormaliseInputSpec(CommandLineInputSpec):
+    in_wm = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-6,
+        desc='input wm tissue compartment')
+    out_wm = File(
+        'wmfod_norm.mif',
+        argstr='%s',
+        mandatory=True,
+        position=-5,
+        usedefault=True,
+        desc='output normalized wm tissue compartment')
+    in_gm = File(
+        argstr='%s',
+        position=-4,
+        desc='input gm tissue compartment')
+    out_gm = File(
+        'gmfod_norm.mif',
+        argstr='%s',
+        position=-3,
+        usdefault=True,
+        description='output normalized gm tissue compartment')
+    in_csf = File(
+        argstr='%s',
+        position=-2,
+        desc='input csf tissue compartment')
+    out_csf = File(
+        'csffod_norm.mif',
+        argstr='%s',
+        position=-1,
+        usedefault=True,
+        desc='output normalized csf tissue compartment')
+
+    # Optional output
+    mask = File(
+        exists=True,
+        argstr='-mask %s',
+        position=1,
+        mandatory=True,
+        desc=('mask defines the data used to compute intensity '
+              'normalization. This option is mandatory'))
+    order = traits.Int(
+        value=3,
+        usedefault=True,
+        argstr='-order %d',
+        position=2,
+        desc=('maximum order of the polynomial basis used to fit the '
+              'normalisation field in the log-domain. An order of 0 '
+              'is equivalent to not allowing spatial variance of the '
+              'intensity normalisation factor.'))
+    niter = traits.Int(
+        value=15,
+        usedefault=True,
+        argstr='-niter %d',
+        position=3,
+        desc=('set the number of iterations'))
+    check_norm = File(
+        argstr='-check_norm %s',
+        position=4,
+        desc=('output final estimated spatially varying intensity '
+              'level that is uesd for normalisation'))
+    check_mask = File(
+        argstr='-check_mask %s',
+        position=5,
+        desc=('output final mask used to compute normalisation. This '
+              'mask excludes regions identified as outliers by the '
+              'optimisation process'))
+    val = traits.Float(
+        value=0.282095,
+        usedefault=True,
+        argstr='-value %f',
+        position=6,
+        desc=('specify the (positive) reference value to which the '
+              'summed tissue compartments will be normalised'))
+
+    # Computation options
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        position=1,
+        desc=('use this number of threads in multi-threaded '
+              'applications (set to 0 to disable)'))
+
+
+class MTNormaliseOutputSpec(TraitedSpec):
+    out_wm = File(desc='output normalized wm tissue compartment file')
+    out_gm = File(desc='output normalized gm tissue compartment file')
+    out_csf = File(desc='output normalized csf tissue compartment file')
+    check_norm = File(desc='output final spatially varying intensity '
+                           'level that is used for normalisation')
+    check_mask = File(desc='output final mask used to compute '
+                           'normalisation')
+
+
+class MTNormalise(CommandLine):
+    """
+    Multi-tissue informed log-domain intensity normalisation.
+
+    Example
+    -------
+
+    >>> from nipype.interfaces.mrtrix3 import MTNormalise
+    >>> mtnormalise = MTNormalise()
+    >>> mtnormalise.inputs.in_wm = wmfod.mif
+    >>> mtnormalise.inputs.in_gm = gmfod.mif
+    >>> mtnormalise.inputs.in_csf = csffod.mif
+    >>> mtnormalise.inputs.out_wm = wmfod_norm.mif
+    >>> mtnormalise.inputs.out_gm = gmfod_norm.mif
+    >>> mtnormalise.inputs.out_csf = csffod_norm.mif
+    >>> mtnormalise.cmdline
+    'mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif \
+     csfod.mif csdfod_norm.mif'
+    >>> mtnormalise.run()
+    """
+
+    _cmd = 'mtnormalise'
+    input_spec = MTNormaliseInputSpec
+    output_spec = MTNormaliseOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_wm'] = op.abspath(self.inputs.out_wm)
+        if self.inputs.out_gm != Undefined:
+            outputs['out_gm'] = op.abspath(self.inputs.out_gm)
+        if self.inputs.out_csf != Undefined:
+            outputs['out_csf'] = op.abspath(self.inputs.out_csf)
+        if self.inputs.check_norm != Undefined:
+            outputs['check_norm'] = op.abspath(self.inputs.check_norm)
+        if self.inputs.check_mask != Undefined:
+            outputs['check_mask'] = op.abspath(self.inputs.check_mask)
+        return outputs
