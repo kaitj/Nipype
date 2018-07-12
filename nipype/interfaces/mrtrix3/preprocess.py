@@ -356,7 +356,6 @@ class MTNormaliseInputSpec(CommandLineInputSpec):
     mask = File(
         exists=True,
         argstr='-mask %s',
-        position=2,
         mandatory=True,
         desc=('mask defines the data used to compute intensity '
               'normalization. This option is mandatory'))
@@ -364,7 +363,6 @@ class MTNormaliseInputSpec(CommandLineInputSpec):
         3,
         usedefault=True,
         argstr='-order %d',
-        position=3,
         desc=('maximum order of the polynomial basis used to fit the '
               'normalisation field in the log-domain. An order of 0 '
               'is equivalent to not allowing spatial variance of the '
@@ -373,16 +371,13 @@ class MTNormaliseInputSpec(CommandLineInputSpec):
         15,
         usedefault=True,
         argstr='-niter %d',
-        position=4,
         desc=('set the number of iterations'))
     check_norm = File(
         argstr='-check_norm %s',
-        position=5,
         desc=('output final estimated spatially varying intensity '
               'level that is uesd for normalisation'))
     check_mask = File(
         argstr='-check_mask %s',
-        position=6,
         desc=('output final mask used to compute normalisation. This '
               'mask excludes regions identified as outliers by the '
               'optimisation process'))
@@ -390,7 +385,6 @@ class MTNormaliseInputSpec(CommandLineInputSpec):
         0.282095,
         usedefault=True,
         argstr='-value %f',
-        position=7,
         desc=('specify the (positive) reference value to which the '
               'summed tissue compartments will be normalised'))
 
