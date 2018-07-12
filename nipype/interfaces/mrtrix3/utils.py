@@ -396,6 +396,8 @@ class TensorMetricsInputSpec(CommandLineInputSpec):
 
     out_fa = File(argstr='-fa %s', desc='output FA file')
     out_adc = File(argstr='-adc %s', desc='output ADC file')
+    out_rd = File(argstr='-rd %s', desc='output RD file')
+    out_ad = File(argstr='-ad %s', desc='output AD file')
     out_evec = File(
         argstr='-vector %s', desc='output selected eigenvector(s) file')
     out_eval = File(
@@ -424,6 +426,8 @@ class TensorMetricsInputSpec(CommandLineInputSpec):
 class TensorMetricsOutputSpec(TraitedSpec):
     out_fa = File(desc='output FA file')
     out_adc = File(desc='output ADC file')
+    out_rd = File(desc='output RD file')
+    out_ad = File(desc='output AD file')
     out_evec = File(desc='output selected eigenvector(s) file')
     out_eval = File(desc='output selected eigenvalue(s) file')
 

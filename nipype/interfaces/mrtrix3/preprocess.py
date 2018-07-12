@@ -443,3 +443,66 @@ class MTNormalise(CommandLine):
         if self.inputs.check_mask != Undefined:
             outputs['check_mask'] = op.abspath(self.inputs.check_mask)
         return outputs
+
+
+class DWINormaliseInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-3,
+        desc='input DWI image')
+    in_mask = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input mask image')
+    out_file = File(
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output DWI intensity normalised image')
+
+    # Options
+    intensity = traits.Float(
+        1000,
+        argstr='-intensity %f',
+        usedefault=True,
+        desc='normalise b=0 signal to specified value')
+    percentile = traits.Float(
+        argstr='-percentile %f',
+        desc=('define percentile of mask intensities used for normalisation '
+              'If this option is not supplied, median value will be '
+              'normalised to desired intensity value'))
+
+
+class DWINormaliseOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output DWI intensity normalised image')
+
+
+class DWINormalise(CommandLine):
+    """
+    Intensity normalise the b=0 signal within a supplied white matter mask.
+
+    Example
+    -------
+
+    >>> from nipype.interfaces.mrtrix3 import DWINormalise
+    >>> dwinormalise = DWINormalise()
+    >>> dwinormalise.inputs.in_file = 'dwi.mif'
+    >>> dwinormalise.inputs.in_mask = 'mask.mif'
+    >>> dwinormalise.inputs.out_file = 'dwi_norm.mif'
+    >>> dwinormalise.cmdline
+    'dwinormalise dwi.mif mask.mif dwi_norm.mif'
+    >>> dwinormalise.run()
+    """
+
+    _cmd = 'dwinormalise'
+    input_spec = DWINormaliseInputSpec
+    output_spec = DWINormaliseOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
