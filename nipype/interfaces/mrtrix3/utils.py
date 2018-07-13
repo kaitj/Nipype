@@ -422,6 +422,10 @@ class TensorMetricsInputSpec(CommandLineInputSpec):
         desc=('how to modulate the magnitude of the'
               ' eigenvectors'))
 
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc=('use this number of threads in multi-threaded applications'))
+
 
 class TensorMetricsOutputSpec(TraitedSpec):
     out_fa = File(desc='output FA file')
