@@ -6,7 +6,7 @@ from __future__ import (print_function, division, unicode_literals,
 
 import os.path as op
 
-from ..base import traits, TraitedSpec, File, Undefined
+from ..base import traits, TraitedSpec, File, isdefined, Undefined
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -31,23 +31,28 @@ class FitTensorInputSpec(MRTrix3BaseInputSpec):
         argstr='-mask %s',
         desc=('only perform computation within the specified '
               'binary brain mask image'))
-    method = traits.Enum(
-        'nonlinear',
-        'loglinear',
-        'sech',
-        'rician',
-        argstr='-method %s',
-        desc=('select method used to perform the fitting'))
-    reg_term = traits.Float(
-        5.e3, usedefault=True,
-        argstr='-regularisation %f',
-        desc=('specify the strength of the regularisation term on the '
-              'magnitude of the tensor elements (default = 5000). This '
-              'only applies to the non-linear methods'))
+    out_bzero = File(
+        argstr='-b0 %s',
+        desc=('output b0 image'))
+    out_dkt = File(
+        argstr='-dkt %s',
+        desc=('output dkt image'))
+    iter = traits.Int(
+        2,
+        argstr='-iter %d',
+        usedefault=True,
+        desc=('number of iterative reweightings (default 2); '
+              'set to 0 for ordinary linear least squares'))
+    out_signal = File(
+        argstr='-predicted_signal %s',
+        desc=('predicted dwi image'))
 
 
 class FitTensorOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='the output DTI file')
+    out_bzero = File(desc='output b0 image')
+    out_dkt = File(desc='output dkt image')
+    out_Signal = File(desc='predicted dwi image')
 
 
 class FitTensor(MRTrix3Base):
@@ -75,7 +80,11 @@ class FitTensor(MRTrix3Base):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
+
+        for k in list(outputs.keys()):
+            if isdefined(getattr(self.inputs, k)):
+                outputs[k] = op.abspath(getattr(self.inputs, k))
+
         return outputs
 
 
