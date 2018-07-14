@@ -52,7 +52,7 @@ class FitTensorOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='the output DTI file')
     out_bzero = File(desc='output b0 image')
     out_dkt = File(desc='output dkt image')
-    out_Signal = File(desc='predicted dwi image')
+    out_signal = File(desc='predicted dwi image')
 
 
 class FitTensor(MRTrix3Base):
