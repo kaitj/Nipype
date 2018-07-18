@@ -841,12 +841,12 @@ class MRConvert(MRTrix3Base):
 
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):
-    in_file = File(
-        exists=True,
+    in_file = InputMultiPath(
+        File(exists=True),
         argstr='%s',
         mandatory=True,
         position=-3,
-        desc='input image')
+        desc='input image(s)')
     out_file = File(
         argstr='%s', mandatory=True, position=-1, desc='output image')
     operation = traits.Enum(
