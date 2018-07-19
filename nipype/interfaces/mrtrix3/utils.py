@@ -842,7 +842,7 @@ class MRConvert(MRTrix3Base):
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):
     in_file = InputMultiObject(
-        File(exists=True),
+        traits.Either(File(exists=True), traits.List),
         argstr='%s',
         mandatory=True,
         position=-3,
