@@ -841,7 +841,7 @@ class MRConvert(MRTrix3Base):
 
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):
-    in_file = InputMultiPath(
+    in_file = InputMultiObject(
         File(exists=True),
         argstr='%s',
         mandatory=True,
