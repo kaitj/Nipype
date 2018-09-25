@@ -117,6 +117,11 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         sep=',',
         desc=('maximum harmonic degree of response function - single value '
               'for single-shell response, list for multi-shell response'))
+    shell = traits.List(
+        traits.Float,
+        sep=',',
+        argstr='-shell %s',
+        desc='specify one or more dw gradient shells')
 
 
 class ResponseSDOutputSpec(TraitedSpec):
