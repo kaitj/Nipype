@@ -49,7 +49,7 @@ from .support import (Bunch, Stream, InterfaceResult, NipypeInterfaceError)
 from future import standard_library
 standard_library.install_aliases()
 
-iflogger = logging.getLogger('interface')
+iflogger = logging.getLogger('nipype.interface')
 
 PY35 = sys.version_info >= (3, 5)
 PY3 = sys.version_info[0] > 2
@@ -500,6 +500,7 @@ class BaseInterface(Interface):
             platform=platform.platform(),
             hostname=platform.node(),
             version=self.version)
+        runtime_attrs = set(runtime.dictcopy())
 
         mon_sp = None
         if enable_rm:
@@ -540,6 +541,10 @@ class BaseInterface(Interface):
             if not ignore_exception:
                 raise
         finally:
+            if runtime is None or runtime_attrs - set(runtime.dictcopy()):
+                raise RuntimeError("{} interface failed to return valid "
+                                   "runtime object".format(
+                                       interface.__class__.__name__))
             # This needs to be done always
             runtime.endTime = dt.isoformat(dt.utcnow())
             timediff = parseutc(runtime.endTime) - parseutc(runtime.startTime)
@@ -692,13 +697,8 @@ class SimpleInterface(BaseInterface):
     Examples
     --------
 
-    .. testsetup::
-
-    >>> from .specs import TraitedSpec
-    >>> tmp = getfixture('tmpdir')
-    >>> old = tmp.chdir() # changing to a temporary directory
-
-    .. doctest::
+    >>> from nipype.interfaces.base import (
+    ...     SimpleInterface, BaseInterfaceInputSpec, TraitedSpec)
 
     >>> def double(x):
     ...    return 2 * x
@@ -721,11 +721,6 @@ class SimpleInterface(BaseInterface):
     >>> dbl.inputs.x = 2
     >>> dbl.run().outputs.doubled
     4.0
-
-    .. testsetup::
-
-    >>> os.chdir(old.strpath)
-
     """
 
     def __init__(self, from_file=None, resource_monitor=None, **inputs):
@@ -775,7 +770,7 @@ def run_command(runtime, output=None, timeout=0.01):
         shell=True,
         cwd=runtime.cwd,
         env=env,
-        close_fds=True,
+        close_fds=(not sys.platform.startswith('win')),
     )
 
     result = {
@@ -892,8 +887,7 @@ class CommandLine(BaseInterface):
     # Use get_traitsfree() to check all inputs set
     >>> pprint.pprint(cli.inputs.get_traitsfree())  # doctest:
     {'args': '-al',
-     'environ': {'DISPLAY': ':1'},
-     'ignore_exception': False}
+     'environ': {'DISPLAY': ':1'}}
 
     >>> cli.inputs.get_hashval()[0][0]
     ('args', '-al')
