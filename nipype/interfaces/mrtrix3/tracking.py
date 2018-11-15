@@ -6,7 +6,9 @@ from __future__ import (print_function, division, unicode_literals,
 
 import os.path as op
 
-from ..base import traits, TraitedSpec, File
+from ..base import (traits, TraitedSpec, File, InputMultiObject, Directory,
+                    Undefined, CommandLineInputSpec, CommandLine, isdefined,
+                    InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -75,7 +77,7 @@ class TractographyInputSpec(MRTrix3BaseInputSpec):
         desc=('set the maximum angle between successive steps (default '
               'is 90deg x stepsize / voxelsize)'))
     n_tracks = traits.Int(
-        argstr='-number %d',
+        argstr='-select %d',
         desc=('set the desired number of tracks. The program will continue'
               ' to generate tracks until this number of tracks have been '
               'selected and written to the output file'))
@@ -282,4 +284,441 @@ class Tractography(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class SIFTInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        position=-3,
+        mandatory=True,
+        desc='input track file'
+    )
+
+    in_fod = File(
+        exists=True,
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input image containing spherical harmonics of the fibre '
+             'orientation distrubtions'
+    )
+
+    out_file = File(
+        'tracks_filtered.tck',
+        argstr='%s',
+        position=-1,
+        usedefault=True,
+        desc='output filtered tracks file'
+    )
+
+    # Options
+    nofilter = traits.Bool(
+        argstr='-nofilter',
+        position=1,
+        desc='do NOT perform track filtering - just construct model to '
+             'provide output debugging images'
+    )
+    output_at_counts = InputMultiObject(
+        traits.Int,
+        argstr='-output_at_counds %d',
+        position=1,
+        desc='output filtered track files at specific numbers of remaining '
+             'streamlines; provide as comma-seperated list of integers'
+    )
+    # Options for processing mask
+    proc_mask = File(
+        argstr='-proc_mask %s',
+        position=1,
+        desc='provide image containign processing mask weights for the model '
+             'image spatial dimensions must match the fixel image'
+    )
+    act_img = File(
+        argstr='-act %s',
+        position=1,
+        desc='use an ACT five-tissue-type segmented anatomical image to '
+             'derive the processing mask'
+    )
+    # Options for SIFT model
+    fd_scale_gm = traits.Bool(
+        argstr='-fd_scale_gm',
+        position=1,
+        desc='provide this option (in conjunction with -act) to heuristically '
+             'downsize the fibre density estimates based on the presence of '
+             'GM in the voxel. this can assist in reducing tissue interface '
+             'effects when using a single-tissue deconvolution algorithm'
+    )
+    no_dilate = traits.Bool(
+        argstr='-no_dilate_lut',
+        position=1,
+        desc='do NOT dilate FOD lobe lookup tables; only map streamlines to '
+             'FOD lobes if the precise tangent lies within the angular spread '
+             'of that lobe'
+    )
+    null_lobes = traits.Bool(
+        argstr='-make_null_lobes',
+        position=1,
+        desc='add an additional FOD lobe to each voxel, with zero integral, '
+             'that covers all directions with zero / negative FOD amplitudes'
+    )
+    remove_untracked = traits.Bool(
+        argstr='-remove_untracked',
+        position=1,
+        desc='remove FOD lobes that do not have any streamline density '
+             'attributed to them; this improves filtering slightly, at the '
+             'expense of longer computation time (and you can no longer do '
+             'quantitative comparisons between reconstructions if this is '
+             'enabled)'
+    )
+    fd_thresh = traits.Float(
+        argstr='-fd_thresh %f',
+        position=1,
+        desc='fibre density threshold; excluse an FOD lobe from filtering '
+             'processing if its integral is less than this amount ( '
+             'streamlines will still be mapped to it, but it will not '
+             'contribute to the cost function or the filtering)'
+    )
+    # Options for additional output files
+    csv_file = File(
+        argstr='-csv %s',
+        position=1,
+        desc='output statistics of execution per iteration to a .csv file'
+    )
+    out_mu = File(
+        argstr='-out_mu %s',
+        position=1,
+        desc='output the final value of SIFT proportionality coefficient mu '
+             'to a text file'
+    )
+    out_debug = traits.Bool(
+        argstr='-output_debug',
+        position=1,
+        desc='provide various output images for assessing & debugging '
+             'performance etc.'
+    )
+    out_selection = Directory(
+        argstr='-out_selection %s',
+        position=1,
+        desc='output a text file containing the binary selection of '
+             'streamlines'
+    )
+    # Options on termination
+    term_number = traits.Int(
+        argstr='-term_number %d',
+        position=1,
+        desc='number of streamlines - continue filtering until this nubmer of '
+             'streamlines remain'
+    )
+    term_ratio = traits.Float(
+        argstr='-term_ratio %f',
+        position=1,
+        desc='termination ratio - defined as the ration between reduction in '
+             'cost function, and reduction in density of streamlines. smaller '
+             'values result in more streamlines being filtered out.'
+    )
+    term_mu = traits.Float(
+        argstr='-term_mu %f',
+        position=1,
+        desc='terminate filtering once the SIFT proportionality coefficient '
+             'reaches a given value'
+    )
+
+
+class SIFTOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output filtered tracks file')
+    csv_file = File(desc='output statistics of execution per iteration')
+    out_mu = File(desc='output final value of SIFT proportionality '
+                       'coefficient')
+    out_selection = Directory(desc='output a text file containing binary '
+                                   'selection of streamlines')
+
+
+class SIFT(MRTrix3Base):
+    """
+    Filter a whole-brain fibre-trackign data set such that the streamline
+    densities match the FOD lobe integrals
+
+    .. Smith, R. E.; Tournier, J.-D.; Calamante, F. & Connelly, A.
+       SIFT: Spherical-deconvolution informed filtering of tractograms.
+       NeuroImage, 2013, 67, 298-312
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> sift = mrt.SIFT()
+    >>> sift.inputs.in_file = 'tracks.tck'
+    >>> sift.inputs.in_fod = 'fods.mif'
+    >>> sift.inputs.out_file = 'tracks_filtered.tck'
+    >>> tk.cmdline                               # doctest: +ELLIPSIS
+    'tcksift tracks.tck fods.mif tracks_filtered.tck'
+    >>> tk.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = "tcksift"
+    input_spec = SIFTInputSpec
+    output_spec = SIFTOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+
+        # Conditional outputs
+        if self.inputs.csv_file != Undefined:
+            outputs['csv_file'] = op.abspath(self.inputs.csv_file)
+        if self.inputs.out_mu != Undefined:
+            outputs['out_mu'] = op.abspath(self.inputs.out_mu)
+        if self.inputs.out_selection != Undefined:
+            outputs['out_selection'] = op.abspath(self.inputs.out_selection)
+        return outputs
+
+
+class TCKConvertInputSpec(CommandLineInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input track file'
+    )
+    out_file = File(
+        argstr='%s',
+        position=-1,
+        mandatory=True,
+        desc='output track file'
+    )
+    # Options
+    scanner2voxel = File(
+        argstr='-scanner2voxel %s',
+        position=1,
+        desc='properties of this image will be uesd to convert track point '
+             'positions from real (scanner) coordinates into voxel coordinates'
+    )
+    scanner2image = File(
+        argstr='-scanner2image %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from real (scanner) coordinates into image '
+             'coordinates (in mm)'
+    )
+    voxel2scanner = File(
+        argstr='-voxel2scanner %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from voxel coordinates into real (scanner) coordinates'
+    )
+    image2scanner = File(
+        argstr='-image2scanner %s',
+        position=1,
+        desc='properties of this image will be used to convert track point '
+             'positions from image coordinates (in mm) into real (scanner) '
+             'coordinates'
+    )
+    # Ply writer options
+    sides = traits.Int(
+        argstr='-sides %d',
+        position=1,
+        desc='number of sides for streamlines',
+    )
+    increment = traits.Int(
+        argstr='-increment %d',
+        position=1,
+        desc='generate streamline points at every (increment) points'
+    )
+    # RIB writer options
+    dec = traits.Bool(
+        argstr='-dec',
+        position=1,
+        desc='add DEC as a primvar'
+    )
+    # Writer options for both RIB and PLY
+    radius = traits.Float(
+        argstr='-radius %f',
+        position=1,
+        desc='radius of the streamlines'
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc='number of threads. if zero, the number'
+        ' of available cpus will be used',
+    )
+
+
+class TCKConvertOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output track file')
+
+
+class TCKConvert(MRTrix3Base):
+    """
+    Convert between different track file formats
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tckconvert = mrt.tckconvert()
+    >>> tckconvert.inputs.in_file = 'tracks.tck'
+    >>> tckconvert.inputs.out_file = 'tracks.vtk'
+    >>> tckconert..cmdline                               # doctest: +ELLIPSIS
+    'tckconvert tracks.tck tracks.vtk
+    >>> tckconvert.run()                                 # doctest: +SKIP
+    """
+    _cmd = 'tckconvert'
+    input_spec = TCKConvertInputSpec
+    output_spec = TCKConvertOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class TCKEditInputSpec(CommandLineInputSpec):
+    in_file = InputMultiPath(
+        File(exists=True),
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input track file(s)'
+        )
+    out_file = File(
+        'tracks_selected.tck',
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        usedefault=True,
+        desc='output track file'
+    )
+    # ROI options
+    include = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-include %s',
+        position=1,
+        desc='inclusion ROI as either binary mask image, or as a sphere '
+             'using 4 comma-seperated values (x,y,z, radius). Streamlines '
+             'must traverse all inclusion regions to be accepted'
+    )
+    exclude = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-include %s',
+        position=1,
+        desc='inclusion ROI as either binary mask image, or as a sphere '
+             'using 4 comma-seperated values (x,y,z,radius). Streamlines '
+             'that enter ANY exclude region will be discarded'
+    )
+    mask = traits.Either(
+        File(exists=True),
+        InputMultiObject(traits.Float),
+        argstr='-mask %s',
+        position=1,
+        desc='specify a masking ROI, as either a binary mask image, or as a '
+             'sphere using 4 comma-seperated values (x,y,z,radius). '
+             'If defined, streamlines existing the mask will be truncated.'
+    )
+    # Streamline threshold options
+    maxlength = traits.Float(
+        argstr='-maxlength %f',
+        position=1,
+        desc='set the maximum length of any streamline in mm'
+    )
+    minlength = traits.Float(
+        argstr='-minlength %f',
+        position=1,
+        desc='set the minimum length of any streamline in mm'
+    )
+    # Streamline truncation options
+    number = traits.Int(
+        argstr='-number %d',
+        position=1,
+        desc='set the desired number of selected streamlines to be '
+             'propogated to the output file'
+    )
+    skip = traits.Int(
+        argstr='-skip %d',
+        position=1,
+        desc='omit this number of selected straemlines before commencing '
+             'writing to the output file'
+    )
+    # Streamline weighting
+    maxvalue = traits.Float(
+        argstr='-maxweight %f',
+        position=1,
+        desc='set maximum weight of any streamline'
+    )
+    minvalue = traits.Float(
+        argstr='-minweight %f',
+        position=1,
+        desc='set minimum weight of any streamline'
+    )
+    tckweights_in = File(
+        exists=True,
+        argstr='-tck_weights_in %s',
+        position=1,
+        desc='specify a text scalar file containing the streamline weights'
+    )
+    tckweights_out = Directory(
+        argstr='-tck_weights_out %s',
+        position=1,
+        desc='specify the path for an output text scalar file containing '
+             'streamline weights'
+    )
+    # tckedit specific options
+    inverse = traits.Bool(
+        argstr='-inverse',
+        position=1,
+        desc='output inverse selection of streamlines based on criteria '
+             'provided, i.e. only those streamlines that fail at least one '
+             'criterion will be written to file '
+    )
+    ends_only = traits.Bool(
+        argstr='-ends_only',
+        position=1,
+        desc='only test the ends of each streamline against the provided '
+             'include/exclude ROIs'
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc='number of threads. if zero, the number of available cpus will '
+             'be used',
+    )
+
+
+class TCKEditOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output track file')
+    tckweights_out = Directory(desc='path for output text scalar file')
+
+
+class TCKEdit(CommandLine):
+    """
+    Perform various editing operations on track files
+
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tckedit = mrt.TCKEdit()
+    >>> tckedit.inputs.in_file = 'in_tracks.tck'
+    >>> tckedit.inputs.out_file = 'out_tracks.tck'
+    >>> tckedit.inputs.number = 20000
+    >>> tckedit.cmdline                               # doctest: +ELLIPSIS
+    'tckedit -number 20000 in_tracks.tck out_tracks.tck'
+    >>> tckedit.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = 'tckedit'
+    input_spec = TCKEditInputSpec
+    output_spec = TCKEditOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        # Conditional output
+        if isdefined(self.inputs.tckweights_out) and self.inputs.tck_weights_out:
+            outputs['tckweights_out'] = op.abspath(self.inputs.tckweight_out)
         return outputs

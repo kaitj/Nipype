@@ -5,10 +5,9 @@ from __future__ import (print_function, division, unicode_literals,
                         absolute_import)
 
 import os.path as op
-import sys
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, isdefined, Undefined, InputMultiObject,
+                    File, Undefined, InputMultiObject,
                     InputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
@@ -25,21 +24,25 @@ class DWIDenoiseInputSpec(MRTrix3BaseInputSpec):
         argstr='-mask %s',
         position=1,
         desc='mask image')
-    extent = traits.Tuple((traits.Int, traits.Int, traits.Int),
+    extent = traits.Tuple(
+        (traits.Int, traits.Int, traits.Int),
         argstr='-extent %d,%d,%d',
         desc='set the window size of the denoising filter. (default = 5,5,5)')
     noise = File(
         argstr='-noise %s',
         desc='noise map')
-    out_file = File(name_template='%s_denoised',
+    out_file = File(
+        name_template='%s_denoised',
         name_source='in_file',
         keep_extension=True,
         argstr="%s",
         position=-1,
         desc="the output denoised DWI image")
 
+
 class DWIDenoiseOutputSpec(TraitedSpec):
     out_file = File(desc="the output denoised DWI image", exists=True)
+
 
 class DWIDenoise(MRTrix3Base):
     """
@@ -112,8 +115,13 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         usedefault=True,
         argstr='-lmax %s',
         sep=',',
-        desc=('maximum harmonic degree of response function - single value for '
-              'single-shell response, list for multi-shell response'))
+        desc=('maximum harmonic degree of response function - single value '
+              'for single-shell response, list for multi-shell response'))
+    shell = traits.List(
+        traits.Float,
+        sep=',',
+        argstr='-shell %s',
+        desc='specify one or more dw gradient shells')
 
 
 class ResponseSDOutputSpec(TraitedSpec):
@@ -124,7 +132,8 @@ class ResponseSDOutputSpec(TraitedSpec):
 
 class ResponseSD(MRTrix3Base):
     """
-    Estimate response function(s) for spherical deconvolution using the specified algorithm.
+    Estimate response function(s) for spherical deconvolution using the
+    specified algorithm.
 
     Example
     -------
@@ -306,6 +315,197 @@ mrtrix3_labelconfig.txt aparc+first.mif'
     _cmd = 'fs_parc_replace_sgm_first'
     input_spec = ReplaceFSwithFIRSTInputSpec
     output_spec = ReplaceFSwithFIRSTOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class MTNormaliseInputSpec(CommandLineInputSpec):
+    in_wm = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-6,
+        desc='input wm tissue compartment')
+    out_wm = File(
+        'wmfod_norm.mif',
+        argstr='%s',
+        mandatory=True,
+        position=-5,
+        usedefault=True,
+        desc='output normalized wm tissue compartment')
+    in_gm = File(
+        argstr='%s',
+        position=-4,
+        desc='input gm tissue compartment')
+    out_gm = File(
+        'gmfod_norm.mif',
+        argstr='%s',
+        position=-3,
+        usedefault=True,
+        description='output normalized gm tissue compartment')
+    in_csf = File(
+        argstr='%s',
+        position=-2,
+        desc='input csf tissue compartment')
+    out_csf = File(
+        'csffod_norm.mif',
+        argstr='%s',
+        position=-1,
+        usedefault=True,
+        desc='output normalized csf tissue compartment')
+
+    # Optional output
+    mask = File(
+        exists=True,
+        argstr='-mask %s',
+        mandatory=True,
+        desc=('mask defines the data used to compute intensity '
+              'normalization. This option is mandatory'))
+    order = traits.Int(
+        3,
+        usedefault=True,
+        argstr='-order %d',
+        desc=('maximum order of the polynomial basis used to fit the '
+              'normalisation field in the log-domain. An order of 0 '
+              'is equivalent to not allowing spatial variance of the '
+              'intensity normalisation factor.'))
+    niter = traits.Int(
+        15,
+        usedefault=True,
+        argstr='-niter %d',
+        desc=('set the number of iterations'))
+    check_norm = File(
+        argstr='-check_norm %s',
+        desc=('output final estimated spatially varying intensity '
+              'level that is uesd for normalisation'))
+    check_mask = File(
+        argstr='-check_mask %s',
+        desc=('output final mask used to compute normalisation. This '
+              'mask excludes regions identified as outliers by the '
+              'optimisation process'))
+    val = traits.Float(
+        0.282095,
+        usedefault=True,
+        argstr='-value %f',
+        desc=('specify the (positive) reference value to which the '
+              'summed tissue compartments will be normalised'))
+
+    # Computation options
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        position=1,
+        desc=('use this number of threads in multi-threaded '
+              'applications (set to 0 to disable)'))
+
+
+class MTNormaliseOutputSpec(TraitedSpec):
+    out_wm = File(desc='output normalized wm tissue compartment file')
+    out_gm = File(desc='output normalized gm tissue compartment file')
+    out_csf = File(desc='output normalized csf tissue compartment file')
+    check_norm = File(desc='output final spatially varying intensity '
+                           'level that is used for normalisation')
+    check_mask = File(desc='output final mask used to compute '
+                           'normalisation')
+
+
+class MTNormalise(CommandLine):
+    """
+    Multi-tissue informed log-domain intensity normalisation.
+
+    Example
+    -------
+
+    >>> from nipype.interfaces.mrtrix3 import MTNormalise
+    >>> mtnormalise = MTNormalise()
+    >>> mtnormalise.inputs.in_wm = wmfod.mif
+    >>> mtnormalise.inputs.in_gm = gmfod.mif
+    >>> mtnormalise.inputs.in_csf = csffod.mif
+    >>> mtnormalise.inputs.out_wm = wmfod_norm.mif
+    >>> mtnormalise.inputs.out_gm = gmfod_norm.mif
+    >>> mtnormalise.inputs.out_csf = csffod_norm.mif
+    >>> mtnormalise.cmdline
+    'mtnormalise wmfod.mif wmfod_norm.mif gmfod.mif gmfod_norm.mif \
+     csfod.mif csdfod_norm.mif'
+    >>> mtnormalise.run()
+    """
+
+    _cmd = 'mtnormalise'
+    input_spec = MTNormaliseInputSpec
+    output_spec = MTNormaliseOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_wm'] = op.abspath(self.inputs.out_wm)
+        if self.inputs.out_gm != Undefined:
+            outputs['out_gm'] = op.abspath(self.inputs.out_gm)
+        if self.inputs.out_csf != Undefined:
+            outputs['out_csf'] = op.abspath(self.inputs.out_csf)
+        if self.inputs.check_norm != Undefined:
+            outputs['check_norm'] = op.abspath(self.inputs.check_norm)
+        if self.inputs.check_mask != Undefined:
+            outputs['check_mask'] = op.abspath(self.inputs.check_mask)
+        return outputs
+
+
+class DWINormaliseInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-3,
+        desc='input DWI image')
+    in_mask = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input mask image')
+    out_file = File(
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output DWI intensity normalised image')
+
+    # Options
+    intensity = traits.Float(
+        1000,
+        argstr='-intensity %f',
+        usedefault=True,
+        desc='normalise b=0 signal to specified value')
+    percentile = traits.Float(
+        argstr='-percentile %f',
+        desc=('define percentile of mask intensities used for normalisation '
+              'If this option is not supplied, median value will be '
+              'normalised to desired intensity value'))
+
+
+class DWINormaliseOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output DWI intensity normalised image')
+
+
+class DWINormalise(CommandLine):
+    """
+    Intensity normalise the b=0 signal within a supplied white matter mask.
+
+    Example
+    -------
+
+    >>> from nipype.interfaces.mrtrix3 import DWINormalise
+    >>> dwinormalise = DWINormalise()
+    >>> dwinormalise.inputs.in_file = 'dwi.mif'
+    >>> dwinormalise.inputs.in_mask = 'mask.mif'
+    >>> dwinormalise.inputs.out_file = 'dwi_norm.mif'
+    >>> dwinormalise.cmdline
+    'dwinormalise dwi.mif mask.mif dwi_norm.mif'
+    >>> dwinormalise.run()
+    """
+
+    _cmd = 'dwinormalise'
+    input_spec = DWINormaliseInputSpec
+    output_spec = DWINormaliseOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()

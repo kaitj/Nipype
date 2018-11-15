@@ -7,7 +7,8 @@ from __future__ import (print_function, division, unicode_literals,
 import os.path as op
 
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
-                    File, InputMultiPath, isdefined, Directory)
+                    File, isdefined, Undefined, Directory, InputMultiObject,
+                    InputMultiPath, OutputMultiPath)
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -167,6 +168,61 @@ class Generate5tt(MRTrix3Base):
         return outputs
 
 
+class Generate5ttMaskInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input 5tt segmented anatomical image'
+    )
+    out_file = File(
+        'mask_5tt.mif',
+        usedefault=True,
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output mask image'
+    )
+    mask_in = File(
+        argstr='-mask_in %s',
+        position=1,
+        desc='Filter input mask image according to voxel in GM/WM boundary'
+    )
+
+
+class Generate5ttMaskOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output mask image')
+
+
+class Generate5ttMask(MRTrix3Base):
+    """
+    Generate a mask image suitable appropriate for seeding streamlines on the
+    grey matter-white matter interface
+
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> gen5ttmask = mrt.Generate5ttMask()
+    >>> gen5ttmask.inputs.in_file = '5tt.mif'
+    >>> gen5ttmask.inputs.out_file = 'mask.mif'
+    >>> gen5ttmask.cmdline                             # doctest: +ELLIPSIS
+    '5tt2gmwmi 5tt.mif mask.mif'
+    >>> gen5ttmask.run()                               # doctest: +SKIP
+    """
+
+    _cmd = '5tt2gmwmi'
+    input_spec = Generate5ttMaskInputSpec
+    output_spec = Generate5ttMaskOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
 class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
     in_dir = Directory(
         exists=True,
@@ -223,21 +279,18 @@ class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
         desc='output template mask'
     )
     # non-lin options
-    nl_scale = traits.List(
+    nl_scale = InputMultiObject(
         traits.Float,
-        sep=',',
         argstr='-nl_scale %s',
         desc='specify multi-resolution pyramid to build non-linear template'
     )
-    nl_lmax = traits.List(
+    nl_lmax = InputMultiObject(
         traits.Int,
-        sep=',',
         argstr='-nl_lmax %s',
         desc='specify lmax used for non-linear registration'
     )
-    nl_niter = traits.List(
+    nl_niter = InputMultiObject(
         traits.Int,
-        sep=',',
         argstr='-nl_niter %s',
         desc='specify number of registration iterations at each level'
     )
@@ -258,32 +311,32 @@ class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
         argstr='-linear_estimator %s',
         desc='choose estimator for intensity difference metric'
     )
-    rigid_scale = traits.List(
+    rigid_scale = InputMultiObject(
         traits.Float,
         argstr='-rigid_scale %s',
         desc='specify multi-resolution pyramid to build rigid template'
     )
-    rigid_lmax = traits.List(
+    rigid_lmax = InputMultiObject(
         traits.Int,
         argstr='-rigid_lmax %s',
         desc='specify lmax used for rigid registration'
     )
-    rigid_niter = traits.List(
+    rigid_niter = InputMultiObject(
         traits.Int,
         argstr='-rigid_niter %s',
         desc='specify number of registration iterations at each level'
     )
-    affine_scale = traits.List(
+    affine_scale = InputMultiObject(
         traits.Float,
         argstr='-affine_scale %s',
         desc='specify multi-resolution pyramid to build affine template'
     )
-    affine_lmax = traits.List(
+    affine_lmax = InputMultiObject(
         traits.Int,
         argstr='-affine_lmax %s',
         desc='specify lmax used for affine registration'
     )
-    affine_niter = traits.List(
+    affine_niter = InputMultiObject(
         traits.Int,
         argstr='-affine_niter %s',
         desc='specify number of registration iterations at each level'
@@ -295,7 +348,7 @@ class PopulationTemplateOutputSpec(TraitedSpec):
     warp_dir = Directory(desc='output directory with warps')
     tfm_dir = Directory(desc='output directory with transforms')
     lin_tfm_dir = Directory(desc='output directory with linear transforms')
-    template_mask = File(exists=False, desc='output template mask')
+    template_mask = File(desc='output template mask')
 
 
 class PopulationTemplate(MRTrix3Base):
@@ -321,10 +374,15 @@ class PopulationTemplate(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
-        outputs['warp_dir'] = op.abspath(self.inputs.warp_dir)
-        outputs['tfm_dir'] = op.abspath(self.inputs.tfm_dir)
-        outputs['lin_tfm_dir'] = op.abspath(self.inputs.lin_tfm_dir)
-        outputs['template_mask'] = op.abspath(self.inputs.template_mask)
+        # Conditional outputs
+        if isdefined(self.inputs.warp_dir) and self.inputs.warp_dir:
+            outputs['warp_dir'] = op.abspath(self.inputs.warp_dir)
+        if isdefined(self.inputs.tfm_dir) and self.inputs.tfm_dir:
+            outputs['tfm_dir'] = op.abspath(self.inputs.tfm_dir)
+        if isdefined(self.inputs.lin_tfm_dir) and self.inputs.lin_tmf_dir:
+            outputs['lin_tfm_dir'] = op.abspath(self.inputs.lin_tfm_dir)
+        if isdefined(self.inputs.template_mask) and self.inputs.template_mask:
+            outputs['template_mask'] = op.abspath(self.inputs.template_mask)
         return outputs
 
 
@@ -338,6 +396,8 @@ class TensorMetricsInputSpec(CommandLineInputSpec):
 
     out_fa = File(argstr='-fa %s', desc='output FA file')
     out_adc = File(argstr='-adc %s', desc='output ADC file')
+    out_rd = File(argstr='-rd %s', desc='output RD file')
+    out_ad = File(argstr='-ad %s', desc='output AD file')
     out_evec = File(
         argstr='-vector %s', desc='output selected eigenvector(s) file')
     out_eval = File(
@@ -362,10 +422,16 @@ class TensorMetricsInputSpec(CommandLineInputSpec):
         desc=('how to modulate the magnitude of the'
               ' eigenvectors'))
 
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        desc=('use this number of threads in multi-threaded applications'))
+
 
 class TensorMetricsOutputSpec(TraitedSpec):
     out_fa = File(desc='output FA file')
     out_adc = File(desc='output ADC file')
+    out_rd = File(desc='output RD file')
+    out_ad = File(desc='output AD file')
     out_evec = File(desc='output selected eigenvector(s) file')
     out_eval = File(desc='output selected eigenvalue(s) file')
 
@@ -775,12 +841,13 @@ class MRConvert(MRTrix3Base):
 
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):
-    in_file = File(
-        exists=True,
+    in_file = traits.Either(
+        File(exists=True),
+        traits.String(),
         argstr='%s',
         mandatory=True,
         position=-3,
-        desc='input image')
+        desc='input image(s)')
     out_file = File(
         argstr='%s', mandatory=True, position=-1, desc='output image')
     operation = traits.Enum(
@@ -837,4 +904,486 @@ class MRMath(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class MRRegisterInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input image 1 ("moving")'
+    )
+    ref_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='input image 2 ("template")'
+    )
+    # general options
+    tfm_type = traits.Enum(
+        'rigid',
+        'affine',
+        'nonlinear',
+        'rigid_affine',
+        'rigid_nonlinear',
+        'affine_nonlinear',
+        'rigid_affine_nonlinear',
+        argstr='-type %s',
+        desc='registration type'
+    )
+    tfm_img = File(
+        argstr='-transformed %s',
+        desc='moving image after transform to template space'
+    )
+    tfm_midway = traits.List(
+        File(exists=False),
+        argstr='-transformed_midway %s',
+        desc='moving and template image after transform to midway space'
+    )
+    mask1 = File(
+        argstr='-mask1 %s',
+        desc='mask to define region of moving image for optimization'
+    )
+    mask2 = File(
+        argstr='-mask2 %s',
+        desc='mask to define region of template image for optimization'
+    )
+    # linear options
+    rigid = File(
+        argstr='-rigid %s',
+        desc='output file containing 4x4 transformation matrix'
+    )
+    rigid_1tomidway = File(
+        argstr='-rigid_1tomidway %s',
+        desc='output file containing 4x4 transformation aligning '
+             'moving to template image at common midway'
+    )
+    rigid_2tomidway = File(
+        argstr='-rigid_2tomidway %s',
+        desc='output file containing 4x4 transformation aligning '
+             'template to moving image at common midway'
+    )
+    rigid_init_translate = traits.Enum(
+        'mass',
+        'geometric',
+        argstr='-rigid_init_translation %s',
+        desc='initialize translation and centre of rotation'
+    )
+    rigid_init_rotation = traits.Enum(
+        'search',
+        'mass',
+        'none',
+        argstr='-rigid_init_rotation %s',
+        desc='initialize rotation'
+    )
+    rigid_init_matrix = File(
+        argstr='-rigid_init_matrix %s',
+        desc='initialize registration with supplied rigid '
+             'transformation; note this overrides '
+             'rigid_init_translation and rigid_init_rotation'
+    )
+    rigid_scale = InputMultiObject(
+        traits.Float,
+        argstr='-rigid_scale %s',
+        desc='define scale factor of each level of multi-resolution '
+             'scheme'
+    )
+    affine = File(
+        argstr='-affine %s',
+        desc='output file containing affine transformation (4x4)'
+    )
+    affine_1tomidway = File(
+        argstr='-affine_1tomidway %s',
+        desc='output file containing affine transformation aligning '
+             'moving to template image at common midway'
+    )
+    affine_2tomidway = File(
+        argstr='-affine_2tomidway %s',
+        desc='output file containing affine transformation aligning '
+             'template to moving image at common midway'
+    )
+    affine_init_translate = traits.Enum(
+        'mass',
+        'geometric',
+        'none',
+        argstr='-affine_init_translation %s',
+        desc='initialize translatation and centre of rotation'
+    )
+    affine_init_rotation = traits.Enum(
+        'search',
+        'moments',
+        'none',
+        argstr='-affine_init_rotation %s',
+        desc='initialize rotation'
+    )
+    affine_init_matrix = File(
+        argstr='-rigid_init_matrix %s',
+        desc='initialize registration with supplied affine '
+             'transformation; note this overrides '
+             'affine_init_translation and affine_init_rotation'
+    )
+    affine_scale = InputMultiObject(
+        traits.Float,
+        argstr='-affine_scale %s',
+        desc='define scale factor of each level of multi-resolution '
+             'scheme'
+    )
+    affine_niter = InputMultiObject(
+        traits.Int,
+        argstr='-affine_niter %s',
+        desc='maximum number of gradient descent iterations per stage'
+    )
+    affine_metric = traits.Enum(
+        'diff',
+        argstr='-affine_metric %s',
+        desc='valid choices are: diff (intensity differences)'
+    )
+    affine_metric_estimator = traits.Enum(
+        'l1',
+        'l2',
+        'lp',
+        argstr='-affine_metric.diff.estimator %s',
+        desc='valid choices are l1 (least absolute: |x|), '
+             'l2 (ordinary least squares), lp (least powers: |x|^1.2)'
+    )
+    affine_lmax = InputMultiObject(
+        traits.Int,
+        argstr='-affine_lmax %s',
+        desc='explicitly set lmax to be used per scale factor'
+    )
+    affine_log = File(
+        argstr='-affine_log %s',
+        desc='write gradient descent parameter evolution to log file'
+    )
+    # advanced linear transform initialization options
+    init_translation_unmasked1 = traits.Bool(
+        argstr='-init_translation.unmasked1',
+        desc='disregard mask1 for translation'
+    )
+    init_translation_unmasked2 = traits.Bool(
+        argstr='-init_translationl.unmasked2',
+        desc='disregard mask2 for translation'
+    )
+    init_rotation_unmasked1 = traits.Bool(
+        argstr='-init_rotation.unmasked1',
+        desc='disregard mask1 for rotation'
+    )
+    init_rotation_unmasked2 = traits.Bool(
+        argstr='-init_rotation.unmasked2',
+        desc='disregard mask2 for rotation'
+    )
+    init_rotation_angles = InputMultiObject(
+        traits.Int,
+        argstr='-init_rotation.search.angles %s',
+        desc='rotation angles for local search in degrees between 0 '
+             'and 180'
+    )
+    init_rotation_scale = traits.Float(
+        argstr='-init_rotation.search.scale %f',
+        desc='relative size of images used for rotation search'
+    )
+    init_rotation_direction = traits.Int(
+        argstr='-init_rotation.search.directions %d',
+        desc='number of rotation axis for local search'
+    )
+    init_rotation_global = traits.Bool(
+        argstr='-init_rotation.search.run_global',
+        desc='perform a global search'
+    )
+    init_rotation_iteration = traits.Int(
+        argstr='-init_rotation.search.global.iterations %d',
+        desc='number of rotations to investigate'
+    )
+    # advanced linear registration stage options
+    linstage_iterations = InputMultiObject(
+        traits.Int,
+        argstr='-linstage.iterations %s',
+        desc='number of iterations for each registration stage'
+    )
+    linstage_first_opt = traits.Enum(
+        'bbgd',
+        'gd',
+        argstr='-linstage.optimiser.first %s',
+        desc='cost function to use at first iteration of all stages'
+    )
+    linstage_last_opt = traits.Enum(
+        'bbgd',
+        'gd',
+        argstr='-linstage.optimiser.last %s',
+        desc='cost function to use at last iteration of all stages'
+    )
+    linstage_default_opt = traits.Enum(
+        'bbgd',
+        'gd',
+        argstr='-linstage.optimiser.default %s',
+        desc='cost function to use at any stage other than first '
+             'or last'
+    )
+    linstage_diagnostic = File(
+        argstr='-linstage.diagnostics.prefix %s diagnostic',
+        desc='generate diagnostic images after each registration stage'
+    )
+    # non-linear registration options
+    nl_warp = InputMultiPath(
+        File,
+        argstr='-nl_warp %s ',
+        desc='non-linear warp output as two deformation fields, where '
+             'warp1 transforms moving to template and warp2 transforms '
+             'template to moving image'
+    )
+    nl_warp_full = traits.File(
+        argstr='-nl_warp_full %s',
+        desc='output all warps during registration'
+    )
+    nl_init = File(
+        argstr='-nl_init %s',
+        desc='initialize non-linear registration with supplied warped '
+             'image'
+    )
+    nl_scale = InputMultiObject(
+        traits.Float,
+        argstr='-nl_scale %s',
+        desc='defining scale factor for each level of multi-resolution '
+             'scheme'
+    )
+    nl_niter = InputMultiObject(
+        traits.Int,
+        argstr='-nl_niter %s',
+        desc='maximum number of iterations'
+    )
+    nl_update_smooth = traits.Float(
+        argstr='-nl_update_smooth %f',
+        desc='regularise gradient update field with Gausisan smoothing'
+    )
+    nl_dis_smooth = traits.Float(
+        argstr='-nl_dis_smooth %f',
+        desc='regularise displacement field with Gaussian smoothing'
+    )
+    nl_grad_step = traits.Float(
+        argstr='-nl_grad_step %f',
+        desc='gradient step size for non-linear registration'
+    )
+    nl_lmax = InputMultiObject(
+        traits.Int,
+        argstr='-nl_lmax %s',
+        desc='lax to be used per scale factor in non-linear FOD '
+             'registration'
+    )
+    # fod registration options
+    directions = File(
+        argstr='-directions %s',
+        desc='directions used for FOD reorientation using apodised PSF'
+    )
+    noreorientation = traits.Bool(
+        argstr='-noreorientation',
+        desc='turn off FOD reorientation'
+    )
+
+
+class MRRegisterOutputSpec(TraitedSpec):
+    tfm_img = File(desc='moving image after transform to template space')
+    tfm_midway = File(desc='moving and template image after transform in '
+                           'midway space')
+    rigid = File(desc='file containing rigid 4x4 transformation matrix')
+    rigid_1tomidway = File(desc='file containing rigid 4x4 '
+                                'transform matrix aligning moving at common '
+                                'midway')
+    rigid_2tomidway = File(desc='file containing rigid 4x4 '
+                                'transform matrix aligning template at common '
+                                'midway')
+    affine = File(desc='file containing affine 4x4 transformation matrix')
+    affine_1tomidway = File(desc='file containing affine 4x4 transform matrix '
+                                 'aligning moving image at common midway')
+    affine_2tomidway = File(desc='file containing affine 4x4 transform matrix '
+                                 'aligning template image at common midway')
+    affine_log = File(desc='log with gradient descent parameter evolution')
+    linstage_diagnostic = File(desc='diagnostic image after each registration '
+                                    'stage')
+    nl_warp = OutputMultiPath(File, desc='non-linear warp output as two '
+                                         'deformation fields')
+    nl_warp_full = File(desc='output all warps used during registration')
+
+
+class MRRegister(MRTrix3Base):
+    """
+    Register two images together using a symmetric rigid, affine, or non-linear
+    transformation model
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> mrregister = mrt.MRRegister()
+    >>> mrregister.inputs.in_file = 'moving.mif'
+    >>> mrregister.inputs.ref_file = 'template.mif'
+    >>> mrregister.inputs.mask1 = 'mask1.mif'
+    >>> mrregister.inputs.nl_warp = ['mv-tmp_warp', 'tmp-mv_warp']
+    >>> mrregister.cmdline
+    'mrregister -mask1 mask1.mif -nl_warp mv-tmp_warp tmp-mv_warp moving.mif \
+    template.mif'
+    >>> mrregister.run()
+    """
+
+    _cmd = 'mrregister'
+    input_spec = MRRegisterInputSpec
+    output_spec = MRRegisterOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        if self.inputs.tfm_img != Undefined:
+            outputs['tfm_img'] = op.abspath(self.inputs.tfm_img)
+        if self.inputs.tfm_midway != Undefined:
+            outputs['tfm_midway'] = op.abspath(self.inputs.tfm_midway)
+        if self.inputs.rigid != Undefined:
+            outputs['rigid'] = op.abspath(self.inputs.rigid)
+        if self.inputs.rigid_1tomidway != Undefined:
+            outputs['rigid_1tomidway'] = op.abspath(
+                                            self.inputs.rigid_1tomidway)
+        if self.inputs.rigid_2tomidway != Undefined:
+            outputs['rigid_2tomidway'] = op.abspath(
+                                            self.inputs.rigid_2tomidway)
+        if self.inputs.affine != Undefined:
+            outputs['affine'] = op.abspath(self.inputs.affine)
+        if self.inputs.affine_1tomidway != Undefined:
+            outputs['affine_1tomidway'] = op.abspath(
+                                            self.inputs.affine_1tomidway)
+        if self.inputs.affine_2tomidway != Undefined:
+            outputs['affine_2tomidway'] = op.abspath(
+                                            self.inputs.affine_2tomidway)
+        if self.inputs.affine_log != Undefined:
+            outputs['affine_log'] = op.abspath(self.inputs.affine_log)
+        if self.inputs.linstage_diagnostic != Undefined:
+            outputs['linstage_diagnostic'] = op.abspath(
+                self.inputs.linstage_diagnostic)
+        if self.inputs.nl_warp != Undefined:
+            out_files = []
+            for warp in self.inputs.nl_warp:
+                out_files.append(op.abspath(warp))
+            outputs['nl_warp'] = out_files
+        if self.inputs.nl_warp_full != Undefined:
+            outputs['nl_warp_full'] = self.inputs.nl_warp_full
+
+        return outputs
+
+
+class MRTransformInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='Input images to be transformed')
+    out_file = File(
+        genfile=True,
+        argstr='%s',
+        position=-1,
+        desc='Output image')
+    # Affine transformation options
+    linear_transform = File(
+        argstr='-linear %s',
+        position=1,
+        desc="Linear transform to apply mapping points in template image to "
+             "moving image")
+    flip = InputMultiObject(
+        traits.Int,
+        argstr='-flip %s',
+        desc='flip specified axes, provided as list (0:x, 1:y, 2:z)')
+    invert = traits.Bool(
+        argstr='-inverse',
+        position=1,
+        desc="Invert the specified transform before using it")
+    half = traits.Bool(
+        argstr='-half',
+        position=1,
+        desc="Apply matrix square root of transformation")
+    replace_transform = File(
+        argstr='-replace %s',
+        position=1,
+        desc="Replace the current transform by that specified, rather than "
+             "applying it to the current transform")
+    identity = traits.Bool(
+        argstr='-identity',
+        position=1,
+        desc="Set header transform of image to identity matrix")
+    # Regridding
+    template_image = File(
+        exists=True,
+        argstr='-template %s',
+        position=1,
+        desc='Reslice the input image to match specified template image grid')
+    midway_space = traits.Bool(
+        argstr='-midway_space',
+        position=1,
+        desc='Reslice input image to midway space. Requires template or warp '
+             'option.')
+    interpolation = traits.Enum(
+        'nearest',
+        'linear',
+        'cubic',
+        'sinc',
+        argstr='-interp %s',
+        position=1,
+        desc='set interpolation method to use when reslicing')
+    oversample = InputMultiObject(
+        traits.Int,
+        argstr='-oversample %s',
+        position=1,
+        desc='Set amount of over-sampling in target space to perform when '
+             'regridding.')
+    # Non-linear transformation
+    warp = File(
+        argstr='-warp %s',
+        position=1,
+        desc='apply non-linear 4d deformation field to warp input image')
+    warp_full = File(
+        argstr='-warp_full %s',
+        position=1,
+        desc='warp input image using a 5d warp file output from mrregister')
+    # FOD handling options
+    modulate = traits.Bool(
+        argstr='-modulate',
+        position=1,
+        desc='modulate FODs during reorientation to preserve apparent fibre '
+             'density across fibre bundle widths')
+    directions = File(
+        argstr='-directions %s',
+        position=1,
+        desc='directions defining the number and orientation of apodised PSF')
+    noreorientation = traits.Bool(
+        argstr='-noreorientation',
+        position=1,
+        desc='turn off FOD reorientation')
+
+
+class MRTransformOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output image')
+
+
+class MRTransform(MRTrix3Base):
+    """
+    Apply spatial transformations to an image
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> mrtransform = mrt.MRTransform()
+    >>> mrtransform.inputs.in_file = 'input.mif'
+    >>> mrtransform.inputs.out_file = 'output.mif'
+    >>> mrtransform.inputs.warp = 'warp.mif'
+    >>> mrtransform.cmdline
+    'mrtransform -warp warp.mif input.mif output.mif'
+    """
+
+    _cmd = 'mrtransform'
+    input_spec = MRTransformInputSpec
+    output_spec = MRTransformOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+
         return outputs
