@@ -341,20 +341,16 @@ class MTNormaliseInputSpec(CommandLineInputSpec):
         position=-4,
         desc='input gm tissue compartment')
     out_gm = File(
-        'gmfod_norm.mif',
         argstr='%s',
         position=-3,
-        usedefault=True,
         description='output normalized gm tissue compartment')
     in_csf = File(
         argstr='%s',
         position=-2,
         desc='input csf tissue compartment')
     out_csf = File(
-        'csffod_norm.mif',
         argstr='%s',
         position=-1,
-        usedefault=True,
         desc='output normalized csf tissue compartment')
 
     # Optional output
