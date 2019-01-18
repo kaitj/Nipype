@@ -281,7 +281,7 @@ class PopulationTemplateInputSpec(MRTrix3BaseInputSpec):
     # non-lin options
     nl_scale = InputMultiObject(
         traits.Float,
-        argstr='-nl_scale %s',
+        argstr='-nl_scale %f',
         desc='specify multi-resolution pyramid to build non-linear template'
     )
     nl_lmax = InputMultiObject(
@@ -833,6 +833,92 @@ class MRConvert(MRTrix3Base):
     _cmd = 'mrconvert'
     input_spec = MRConvertInputSpec
     output_spec = MRConvertOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class MRThresholdInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input image to be thresholded')
+    out_file = File(
+        argstr='%s',
+        mandatory=True,
+        position=-1,
+        desc='output binary image mask')
+    abs_val = traits.Float(
+        argstr='-abs %f',
+        position=-3,
+        desc='specify threshold value as absolute intensity')
+    percentile = traits.Float(
+        argstr='-percentile %f',
+        position=-3,
+        desc='threhsold the image at the ith percentile')
+    top_val = traits.Int(
+        argstr='-top %d',
+        position=-3,
+        desc='provide a mask of the N top-valued voxels')
+    bot_val = traits.Int(
+        argstr='-bot %d',
+        position=-3,
+        desc='provide a mask of the N bottom-valued voxels')
+    invert = traits.Bool(
+        argstr='-invert',
+        position=-4,
+        desc='invert output binary mask')
+    top_perc = traits.Float(
+        argstr='-toppercent %f',
+        position=-3,
+        desc='provide a mask of the N% top-valued voxels')
+    bot_perc = traits.Float(
+        argstr='-bottompercent %f',
+        position=-3,
+        desc='provide a mask of the N% bottom-valued voxels')
+    nan_val = traits.Bool(
+        argstr='-nan',
+        position=-5,
+        desc='use NaN as the output zero value')
+    ignorezero = traits.Bool(
+        argstr='ignorezero',
+        position=-5,
+        desc='ignore zero-valued input voxels')
+    mask = File(
+        exists=True,
+        argstr='-mask %s',
+        position=-6,
+        desc='compute optimal threshold based on voxels within mask')
+
+
+class MRThresholdOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output binary image mask')
+
+
+class MRMath(MRTrix3Base):
+    """
+    By default, an optimal threshold is determined using a parameter-free
+    method. Alternatively, the threshold can be defined manually by the user.
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> mrthresh = mrt.MRThreshold()
+    >>> mrthresh.inputs.in_file = 'dwi.mif'
+    >>> mrthresh.inputs.abs_val = 0.15
+    >>> mrthresh.inputs.out_file = 'dwi_thr.mif'
+    >>> mrthresh.cmdline                             # doctest: +ELLIPSIS
+    'mrthresh -abs 0.15 dwi.mif dwi_thr.mif'
+    >>> mrthresh.run()                               # doctest: +SKIP
+    """
+    cmd = 'mrthreshold'
+    input_spec = MRThresholdInputSpec
+    output_spec = MRThresholdOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
