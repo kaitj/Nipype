@@ -899,7 +899,7 @@ class MRThresholdOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output binary image mask')
 
 
-class MRMath(MRTrix3Base):
+class MRThreshold(MRTrix3Base):
     """
     By default, an optimal threshold is determined using a parameter-free
     method. Alternatively, the threshold can be defined manually by the user.
@@ -919,6 +919,78 @@ class MRMath(MRTrix3Base):
     cmd = 'mrthreshold'
     input_spec = MRThresholdInputSpec
     output_spec = MRThresholdOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class MRResizeInputSpec(MRTrix3Base):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='input image to be resized')
+    out_file = File(
+        argstr='%s',
+        position=-1,
+        mandatory=True,
+        desc='output image')
+    img_size = traits.List(
+        traits.Float,
+        argstr='-size %s',
+        sep=',',
+        position=-3,
+        desc='new image size for output image; specify as comma-seperated '
+             'list')
+    vox_size = InputMultiObject(
+        traits.Float,
+        argstr='-voxel %s',
+        position=-3,
+        desc='new voxel size for the output image; specify as either single '
+             'value to be used for all dimensions, or as a comma-separated '
+             'list of the size for each voxel dimension')
+    scale_factor = InputMultiObject(
+        traits.Float,
+        argstr='-scale %f',
+        position=-3,
+        desc='scale image resolution by supplied factor; specify as either '
+             'single value to be used for all dimensions, or as '
+             'comma-separated list of scale factors for each dimension')
+    interp_method = traits.String(
+        default='cubic',
+        argstr='-interp %s',
+        position=-4,
+        desc='set interpolation method to use when resizing (choices: '
+             'nearest, linear, cubic, sinc. Default: cubic).')
+
+
+class MRResizeOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output image')
+
+
+class MRResize(MRTrix3Base):
+    """
+    Resize an image by defining the new image resolution, voxel size or a
+    scale factor
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> mrresize = mrt.MRResize()
+    >>> mrresize.inputs.in_file = 'dwi.mif'
+    >>> mrresize.inputs.vox_size = 1.25
+    >>> mrresize.inputs.out_file = 'dwi_resized.mif'
+    >>> mrresize.cmdline                             # doctest: +ELLIPSIS
+    'mrresize -voxel 1.25 dwi.mif dwi_resized.mif'
+    >>> mrresize.run()                               # doctest: +SKIP
+    """
+    cmd = 'mrresize'
+    input_spec = MRResizeInputSpec
+    output_spec = MRResizeOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
