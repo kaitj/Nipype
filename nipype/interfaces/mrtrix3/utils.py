@@ -1337,7 +1337,7 @@ class MRRegisterInputSpec(MRTrix3BaseInputSpec):
     )
     noreorientation = traits.Bool(
         argstr='-noreorientation',
-        position=1
+        position=1,
         desc='turn off FOD reorientation'
     )
 
