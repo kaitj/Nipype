@@ -141,7 +141,8 @@ class EstimateFODOutputSpec(TraitedSpec):
 
 class EstimateFOD(MRTrix3Base):
     """
-    Estimate fibre orientation distributions from diffusion data using spherical deconvolution
+    Estimate fibre orientation distributions from diffusion data using
+    spherical deconvolution
 
     Example
     -------
