@@ -91,30 +91,10 @@ class TractographyInputSpec(MRTrix3BaseInputSpec):
         ),
     )
     n_tracks = traits.Int(
-<<<<<<< HEAD
         argstr='-select %d',
         desc=('set the desired number of tracks. The program will continue'
               ' to generate tracks until this number of tracks have been '
               'selected and written to the output file'))
-=======
-        argstr="-number %d",
-        max_ver="0.4",
-        desc=(
-            "set the desired number of tracks. The program will continue"
-            " to generate tracks until this number of tracks have been "
-            "selected and written to the output file"
-        ),
-    )
-    select = traits.Int(
-        argstr="-select %d",
-        min_ver="3",
-        desc=(
-            "set the desired number of tracks. The program will continue"
-            " to generate tracks until this number of tracks have been "
-            "selected and written to the output file"
-        ),
-    )
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
     max_tracks = traits.Int(
         argstr="-maxnum %d",
         desc=(

@@ -4,28 +4,14 @@
 
 import os.path as op
 
-<<<<<<< HEAD
 from ..base import (CommandLineInputSpec, CommandLine, traits, TraitedSpec,
                     File, Undefined, InputMultiObject,
                     InputMultiPath)
-=======
-from ..base import (
-    CommandLineInputSpec,
-    CommandLine,
-    traits,
-    TraitedSpec,
-    File,
-    isdefined,
-    Undefined,
-    InputMultiObject,
-)
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
 class DWIDenoiseInputSpec(MRTrix3BaseInputSpec):
     in_file = File(
-<<<<<<< HEAD
         exists=True,
         argstr='%s',
         position=-2,
@@ -46,20 +32,6 @@ class DWIDenoiseInputSpec(MRTrix3BaseInputSpec):
     out_file = File(
         name_template='%s_denoised',
         name_source='in_file',
-=======
-        exists=True, argstr="%s", position=-2, mandatory=True, desc="input DWI image"
-    )
-    mask = File(exists=True, argstr="-mask %s", position=1, desc="mask image")
-    extent = traits.Tuple(
-        (traits.Int, traits.Int, traits.Int),
-        argstr="-extent %d,%d,%d",
-        desc="set the window size of the denoising filter. (default = 5,5,5)",
-    )
-    noise = File(
-        argstr="-noise %s",
-        name_template="%s_noise",
-        name_source="in_file",
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
         keep_extension=True,
         desc="the output noise map",
     )
@@ -290,7 +262,6 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
     in_mask = File(exists=True, argstr="-mask %s", desc="provide initial mask image")
     max_sh = InputMultiObject(
         traits.Int,
-<<<<<<< HEAD
         value=[8],
         usedefault=True,
         argstr='-lmax %s',
@@ -302,15 +273,6 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         sep=',',
         argstr='-shell %s',
         desc='specify one or more dw gradient shells')
-=======
-        argstr="-lmax %s",
-        sep=",",
-        desc=(
-            "maximum harmonic degree of response function - single value for "
-            "single-shell response, list for multi-shell response"
-        ),
-    )
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
 
 
 class ResponseSDOutputSpec(TraitedSpec):

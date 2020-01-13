@@ -4,11 +4,7 @@
 
 import os.path as op
 
-<<<<<<< HEAD
 from ..base import traits, TraitedSpec, File, isdefined, Undefined
-=======
-from ..base import traits, TraitedSpec, File, Undefined, InputMultiObject
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
 from .base import MRTrix3BaseInputSpec, MRTrix3Base
 
 
@@ -32,7 +28,6 @@ class FitTensorInputSpec(MRTrix3BaseInputSpec):
     # General options
     in_mask = File(
         exists=True,
-<<<<<<< HEAD
         argstr='-mask %s',
         desc=('only perform computation within the specified '
               'binary brain mask image'))
@@ -58,34 +53,6 @@ class FitTensorOutputSpec(TraitedSpec):
     out_bzero = File(desc='output b0 image')
     out_dkt = File(desc='output dkt image')
     out_signal = File(desc='predicted dwi image')
-=======
-        argstr="-mask %s",
-        desc=(
-            "only perform computation within the specified " "binary brain mask image"
-        ),
-    )
-    method = traits.Enum(
-        "nonlinear",
-        "loglinear",
-        "sech",
-        "rician",
-        argstr="-method %s",
-        desc=("select method used to perform the fitting"),
-    )
-    reg_term = traits.Float(
-        argstr="-regularisation %f",
-        max_ver="0.3.13",
-        desc=(
-            "specify the strength of the regularisation term on the "
-            "magnitude of the tensor elements (default = 5000). This "
-            "only applies to the non-linear methods"
-        ),
-    )
-
-
-class FitTensorOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="the output DTI file")
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
 
 
 class FitTensor(MRTrix3Base):
@@ -112,15 +79,11 @@ class FitTensor(MRTrix3Base):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-<<<<<<< HEAD
 
         for k in list(outputs.keys()):
             if isdefined(getattr(self.inputs, k)):
                 outputs[k] = op.abspath(getattr(self.inputs, k))
 
-=======
-        outputs["out_file"] = op.abspath(self.inputs.out_file)
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
         return outputs
 
 
@@ -145,52 +108,21 @@ class EstimateFODInputSpec(MRTrix3BaseInputSpec):
         position=-5,
         usedefault=True,
         mandatory=True,
-<<<<<<< HEAD
         desc='output WM ODF')
     gm_txt = File(argstr='%s', position=-4, desc='GM response text file')
     gm_odf = File(argstr='%s', position=-3, desc='output GM ODF')
     csf_txt = File(argstr='%s', position=-2, desc='CSF response text file')
     csf_odf = File(argstr='%s', position=-1, desc='output CSF ODF')
     mask_file = File(exists=True, argstr='-mask %s', desc='mask image')
-=======
-        desc="output WM ODF",
-    )
-    gm_txt = File(argstr="%s", position=-4, desc="GM response text file")
-    gm_odf = File(
-        "gm.mif", usedefault=True, argstr="%s", position=-3, desc="output GM ODF"
-    )
-    csf_txt = File(argstr="%s", position=-2, desc="CSF response text file")
-    csf_odf = File(
-        "csf.mif", usedefault=True, argstr="%s", position=-1, desc="output CSF ODF"
-    )
-    mask_file = File(exists=True, argstr="-mask %s", desc="mask image")
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
 
     # DW Shell selection options
     shell = traits.List(
         traits.Float,
-<<<<<<< HEAD
         sep=',',
         argstr='-shell %s',
         desc='specify one or more dw gradient shells')
     max_sh = traits.String(
         argstr='-lmax %s', desc='maximum harmonic degree of response function')
-=======
-        sep=",",
-        argstr="-shell %s",
-        desc="specify one or more dw gradient shells",
-    )
-    max_sh = InputMultiObject(
-        traits.Int,
-        value=[8],
-        usedefault=True,
-        argstr="-lmax %s",
-        sep=",",
-        desc=(
-            "maximum harmonic degree of response function - single value for single-shell response, list for multi-shell response"
-        ),
-    )
->>>>>>> 5d2fe1df7b7ac10be41aefb7a0f3de3d87da829c
     in_dirs = File(
         exists=True,
         argstr="-directions %s",
