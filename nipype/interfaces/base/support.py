@@ -7,17 +7,18 @@ Miscellaneous tools to support Interface functionality
 ......................................................
 
 """
-from __future__ import (print_function, division, unicode_literals,
-                        absolute_import)
-from builtins import object, str
-
 import os
 from copy import deepcopy
+from textwrap import wrap
+import re
 
 from ... import logging
 from ...utils.misc import is_container
-from ...utils.filemanip import md5, to_str, hash_infile
-iflogger = logging.getLogger('nipype.interface')
+from ...utils.filemanip import md5, hash_infile
+
+iflogger = logging.getLogger("nipype.interface")
+
+HELP_LINEWIDTH = 70
 
 
 class NipypeInterfaceError(Exception):
@@ -27,14 +28,15 @@ class NipypeInterfaceError(Exception):
         self.value = value
 
     def __str__(self):
-        return '{}'.format(self.value)
+        return "{}".format(self.value)
 
 
 class Bunch(object):
-    """Dictionary-like class that provides attribute-style access to it's items.
+    """
+    Dictionary-like class that provides attribute-style access to its items.
 
-    A `Bunch` is a simple container that stores it's items as class
-    attributes.  Internally all items are stored in a dictionary and
+    A ``Bunch`` is a simple container that stores its items as class
+    attributes [1]_. Internally all items are stored in a dictionary and
     the class exposes several of the dictionary methods.
 
     Examples
@@ -47,10 +49,8 @@ class Bunch(object):
     >>> inputs
     Bunch(fwhm=6.0, infile='subj.nii', register_to_mean=False)
 
-    Notes
-    -----
-    The Bunch pattern came from the Python Cookbook:
-
+    References
+    ----------
     .. [1] A. Martelli, D. Hudgeon, "Collecting a Bunch of Named
            Items", Python Cookbook, 2nd Ed, Chapter 4.18, 2005.
 
@@ -71,7 +71,7 @@ class Bunch(object):
 
     def iteritems(self):
         """iterates over bunch attributes as key, value pairs"""
-        iflogger.warning('iteritems is deprecated, use items instead')
+        iflogger.warning("iteritems is deprecated, use items instead")
         return list(self.items())
 
     def get(self, *args):
@@ -96,22 +96,22 @@ class Bunch(object):
         needs setting or not. Till that mechanism changes, only alter
         this after careful consideration.
         """
-        outstr = ['Bunch(']
+        outstr = ["Bunch("]
         first = True
         for k, v in sorted(self.items()):
             if not first:
-                outstr.append(', ')
+                outstr.append(", ")
             if isinstance(v, dict):
                 pairs = []
                 for key, value in sorted(v.items()):
                     pairs.append("'%s': %s" % (key, value))
-                v = '{' + ', '.join(pairs) + '}'
-                outstr.append('%s=%s' % (k, v))
+                v = "{" + ", ".join(pairs) + "}"
+                outstr.append("%s=%s" % (k, v))
             else:
-                outstr.append('%s=%r' % (k, v))
+                outstr.append("%s=%r" % (k, v))
             first = False
-        outstr.append(')')
-        return ''.join(outstr)
+        outstr.append(")")
+        return "".join(outstr)
 
     def _get_bunch_hash(self):
         """Return a dictionary of our items with hashes for each file.
@@ -144,7 +144,7 @@ class Bunch(object):
                     item = None
                 else:
                     if len(val) == 0:
-                        raise AttributeError('%s attribute is empty' % key)
+                        raise AttributeError("%s attribute is empty" % key)
                     item = val[0]
             else:
                 item = val
@@ -162,24 +162,24 @@ class Bunch(object):
         # Sort the items of the dictionary, before hashing the string
         # representation so we get a predictable order of the
         # dictionary.
-        sorted_dict = to_str(sorted(dict_nofilename.items()))
+        sorted_dict = str(sorted(dict_nofilename.items()))
         return dict_withhash, md5(sorted_dict.encode()).hexdigest()
 
     def _repr_pretty_(self, p, cycle):
         """Support for the pretty module from ipython.externals"""
         if cycle:
-            p.text('Bunch(...)')
+            p.text("Bunch(...)")
         else:
-            p.begin_group(6, 'Bunch(')
+            p.begin_group(6, "Bunch(")
             first = True
             for k, v in sorted(self.items()):
                 if not first:
-                    p.text(',')
+                    p.text(",")
                     p.breakable()
-                p.text(k + '=')
+                p.text(k + "=")
                 p.pretty(v)
                 first = False
-            p.end_group(6, ')')
+            p.end_group(6, ")")
 
 
 def _hash_bunch_dict(adict, key):
@@ -217,12 +217,7 @@ class InterfaceResult(object):
 
     """
 
-    def __init__(self,
-                 interface,
-                 runtime,
-                 inputs=None,
-                 outputs=None,
-                 provenance=None):
+    def __init__(self, interface, runtime, inputs=None, outputs=None, provenance=None):
         self._version = 2.0
         self.interface = interface
         self.runtime = runtime
@@ -235,14 +230,174 @@ class InterfaceResult(object):
         return self._version
 
 
-def load_template(name):
+def format_help(cls):
     """
-    Deprecated stub for backwards compatibility,
-    please use nipype.interfaces.fsl.model.load_template
+    Prints help text of a Nipype interface
+
+    >>> from nipype.interfaces.afni import GCOR
+    >>> GCOR.help()  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    Wraps the executable command ``@compute_gcor``.
+    <BLANKLINE>
+    Computes the average correlation between every voxel
+    and ever other voxel, over any give mask.
+    <BLANKLINE>
+    <BLANKLINE>
+    For complete details, ...
 
     """
-    from ..fsl.model import load_template
-    iflogger.warning(
-        'Deprecated in 1.0.0, and will be removed in 1.1.0, '
-        'please use nipype.interfaces.fsl.model.load_template instead.')
-    return load_template(name)
+    from ...utils.misc import trim
+
+    docstring = []
+    cmd = getattr(cls, "_cmd", None)
+    if cmd:
+        docstring += ["Wraps the executable command ``%s``." % cmd, ""]
+
+    if cls.__doc__:
+        docstring += trim(cls.__doc__).split("\n") + [""]
+
+    allhelp = "\n".join(
+        docstring
+        + _inputs_help(cls)
+        + [""]
+        + _outputs_help(cls)
+        + [""]
+        + _refs_help(cls)
+    )
+    return allhelp.expandtabs(8)
+
+
+def _inputs_help(cls):
+    r"""
+    Prints description for input parameters
+
+    >>> from nipype.interfaces.afni import GCOR
+    >>> _inputs_help(GCOR)  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    ['Inputs::', '', '\t[Mandatory]', '\tin_file: (a pathlike object or string...
+
+    """
+    helpstr = ["Inputs::"]
+    mandatory_keys = []
+    optional_items = []
+
+    if cls.input_spec:
+        inputs = cls.input_spec()
+        mandatory_items = list(inputs.traits(mandatory=True).items())
+        if mandatory_items:
+            helpstr += ["", "\t[Mandatory]"]
+            for name, spec in mandatory_items:
+                helpstr += get_trait_desc(inputs, name, spec)
+
+        mandatory_keys = {item[0] for item in mandatory_items}
+        optional_items = [
+            "\n".join(get_trait_desc(inputs, name, val))
+            for name, val in inputs.traits(transient=None).items()
+            if name not in mandatory_keys
+        ]
+        if optional_items:
+            helpstr += ["", "\t[Optional]"] + optional_items
+
+    if not mandatory_keys and not optional_items:
+        helpstr += ["", "\tNone"]
+    return helpstr
+
+
+def _outputs_help(cls):
+    r"""
+    Prints description for output parameters
+
+    >>> from nipype.interfaces.afni import GCOR
+    >>> _outputs_help(GCOR)  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    ['Outputs::', '', '\tout: (a float)\n\t\tglobal correlation value']
+
+    """
+    helpstr = ["Outputs::", "", "\tNone"]
+    if cls.output_spec:
+        outputs = cls.output_spec()
+        outhelpstr = [
+            "\n".join(get_trait_desc(outputs, name, spec))
+            for name, spec in outputs.traits(transient=None).items()
+        ]
+        if outhelpstr:
+            helpstr = helpstr[:-1] + outhelpstr
+    return helpstr
+
+
+def _refs_help(cls):
+    """Prints interface references."""
+    references = getattr(cls, "references_", None)
+    if not references:
+        return []
+
+    helpstr = ["References:", "-----------"]
+    for r in references:
+        helpstr += ["{}".format(r["entry"])]
+
+    return helpstr
+
+
+def get_trait_desc(inputs, name, spec):
+    """Parses a HasTraits object into a nipype documentation string"""
+    desc = spec.desc
+    xor = spec.xor
+    requires = spec.requires
+    argstr = spec.argstr
+
+    manhelpstr = ["\t%s" % name]
+
+    type_info = spec.full_info(inputs, name, None)
+
+    default = ""
+    if spec.usedefault:
+        default = ", nipype default value: %s" % str(spec.default_value()[1])
+    line = "(%s%s)" % (type_info, default)
+
+    manhelpstr = wrap(
+        line,
+        HELP_LINEWIDTH,
+        initial_indent=manhelpstr[0] + ": ",
+        subsequent_indent="\t\t  ",
+    )
+
+    if desc:
+        for line in desc.split("\n"):
+            line = re.sub(r"\s+", " ", line)
+            manhelpstr += wrap(
+                line, HELP_LINEWIDTH, initial_indent="\t\t", subsequent_indent="\t\t"
+            )
+
+    if argstr:
+        pos = spec.position
+        if pos is not None:
+            manhelpstr += wrap(
+                "argument: ``%s``, position: %s" % (argstr, pos),
+                HELP_LINEWIDTH,
+                initial_indent="\t\t",
+                subsequent_indent="\t\t",
+            )
+        else:
+            manhelpstr += wrap(
+                "argument: ``%s``" % argstr,
+                HELP_LINEWIDTH,
+                initial_indent="\t\t",
+                subsequent_indent="\t\t",
+            )
+
+    if xor:
+        line = "%s" % ", ".join(xor)
+        manhelpstr += wrap(
+            line,
+            HELP_LINEWIDTH,
+            initial_indent="\t\tmutually_exclusive: ",
+            subsequent_indent="\t\t  ",
+        )
+
+    if requires:
+        others = [field for field in requires if field != name]
+        line = "%s" % ", ".join(others)
+        manhelpstr += wrap(
+            line,
+            HELP_LINEWIDTH,
+            initial_indent="\t\trequires: ",
+            subsequent_indent="\t\t  ",
+        )
+    return manhelpstr
