@@ -799,3 +799,193 @@ class TCKEdit(CommandLine):
         if isdefined(self.inputs.tckweights_out) and self.inputs.tck_weights_out:
             outputs['tckweights_out'] = op.abspath(self.inputs.tckweight_out)
         return outputs
+
+
+class TCKResampleInputSpec(CommandLineInputSpec):
+    # NEED TO ADD LINE AND ARC OPTIONS
+    in_file = File(
+        exists=True,
+        argstr="%s",
+        mandatory=True,
+        position=-2,
+        desc="input track file",
+    )
+
+    out_file = File(
+        "resampled_tracks.tck",
+        argstr="%s",
+        mandatory=True,
+        position=-1,
+        usedefault=True,
+        desc="output resampled tracks"
+    )
+
+    upsample_ratio = traits.Float(
+        argstr='-upsample %f',
+        position=1,
+        desc=("increase the density of points along the length of each "
+              "streamline by some factor (may improve mapping streamlines "
+              "to ROIs, and/or visualization) ")
+    )
+
+    downsample_ratio = traits.Float(
+        argstr='-downsample %f',
+        position=1,
+        desc=("decrease the density of points along the length of each "
+              "streamline by some factor (decreases required storage "
+              "space)")
+    )
+
+    step_size = traits.Float(
+        argstr='-step_size %f',
+        position=1,
+        desc='re-sample the streamlines to a desired step size (in mm)'
+    )
+
+    num_points = traits.Int(
+        argstr='-num_points %d',
+        position=1,
+        desc='re-sample each streamline to a fixed number of points'
+    )
+
+    endpoints = traits.Bool(
+        argstr='-endpoints',
+        position=1,
+        desc='only output the two endpoints of each streamline'
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        position=1,
+        desc='number of threads. if zero, the number'
+             ' of available cpus will be used',
+    )
+
+
+class TCKResampleOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc="the output re-sampled tracks")
+
+
+class TCKResample(CommandLine):
+    """
+    Perform various editing operations on track files
+
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tckresample = mrt.TCKResample()
+    >>> tckresample.inputs.in_file = 'in_tracks.tck'
+    >>> tckresample.inputs.out_file = 'out_tracks.tck'
+    >>> tckresample.inputs.num_points = 20
+    >>> tckresample.cmdline                               # doctest: +ELLIPSIS
+    'tckresample -num_points 20 in_tracks.tck out_tracks.tck'
+    >>> tckresample.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = 'tckresample'
+    input_spec = TCKResampleInputSpec
+    output_spec = TCKResampleOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class TCKSampleInputSpec(CommandLineInputSpec):
+    in_file = File(
+        exists=True,
+        argstr="%s",
+        mandatory=True,
+        position=-3,
+        desc="input track file"
+    )
+
+    in_image = File(
+        exists=True,
+        argstr="%s",
+        mandatory=True,
+        position=-2,
+        desc="input image to be sampled"
+    )
+
+    out_file = File(
+        argstr="%s",
+        mandatory=True,
+        position=-1,
+        desc="output sampled values"
+    )
+
+    stat_tck = traits.Enum(
+        "mean",
+        "median",
+        "min",
+        "max",
+        argstr="-stat_tck %s",
+        position=1,
+        desc="compute some statistic from the values along each streamline"
+    )
+
+    no_interp = traits.Bool(
+        argstr="-nointerp",
+        position=1,
+        desc="do not use trilinear interpolation when sampling image values"
+    )
+
+    precise = traits.Bool(
+        argstr="-precise",
+        position=1,
+        desc=("use the precise mechanism for mapping streamlines to voxels "
+              "(obviates the need for trilinear interpolation) (only "
+              "applicable if some per-streamline statistic is requested)")
+    )
+
+    tdi_tract = traits.Bool(
+        argstr="-use_tdi_fraction",
+        position=1,
+        desc=("each streamline is assigned a fraction of the image intensity "
+              "in each voxel based on the fraction of the track density "
+              "contributed by that streamline (this is only appropriate for "
+              "processing a whole-brain tractogram, and for images for which "
+              "the quantitative parameter is additive)")
+    )
+
+    nthreads = traits.Int(
+        argstr='-nthreads %d',
+        position=1,
+        desc='number of threads. if zero, the number'
+             ' of available cpus will be used',
+    )
+
+
+class TCKSampleOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc="the output re-sampled tracks")
+
+
+class TCKSample(CommandLine):
+    """
+    Sample values of an associated image along tracks
+
+    Example
+    -------
+
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> tcksample = mrt.TCKSample()
+    >>> tcksample.inputs.in_file = 'in_tracks.tck'
+    >>> tcksample.inputs.in_image = 'fa.mif'
+    >>> tcksample.inputs.out_file = 'out_tracks.tck'
+    >>> tcksample.cmdline                               # doctest: +ELLIPSIS
+    'tcksample in_tracks.tck fa.mif out_tracks.tck'
+    >>> tcksample.run()                                 # doctest: +SKIP
+    """
+
+    _cmd = 'tcksample'
+    input_spec = TCKSampleInputSpec
+    output_spec = TCKSampleOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
