@@ -975,9 +975,9 @@ class TCKSample(CommandLine):
     >>> tcksample = mrt.TCKSample()
     >>> tcksample.inputs.in_file = 'in_tracks.tck'
     >>> tcksample.inputs.in_image = 'fa.mif'
-    >>> tcksample.inputs.out_file = 'out_tracks.tck'
+    >>> tcksample.inputs.out_file = 'out_tracks.txt'
     >>> tcksample.cmdline                               # doctest: +ELLIPSIS
-    'tcksample in_tracks.tck fa.mif out_tracks.tck'
+    'tcksample in_tracks.tck fa.mif out_tracks.txt'
     >>> tcksample.run()                                 # doctest: +SKIP
     """
 
